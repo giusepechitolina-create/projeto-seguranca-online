@@ -1,9 +1,7 @@
-import { state, images, canvasElements } from './state.js';
+import { state, images, dom } from './state.js';
 
 export function draw() {
-    const { ctx, canvas } = canvasElements;
-    if (!ctx || !canvas) return;
-
+    const { ctx, canvas } = dom;
     ctx.save();
     ctx.fillStyle = 'white';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -11,28 +9,10 @@ export function draw() {
     ctx.translate(state.pan.x, state.pan.y);
     ctx.scale(state.zoom, state.zoom);
     
-    drawAlignmentGuides();
     drawScene(ctx, state.elements);
     drawSelection();
     
     ctx.restore();
-}
-
-function drawAlignmentGuides() {
-    const { ctx } = canvasElements;
-    if (state.alignmentGuides.length > 0) {
-        ctx.save();
-        ctx.strokeStyle = '#38bdf8';
-        ctx.lineWidth = 1 / state.zoom;
-        ctx.setLineDash([4 / state.zoom, 4 / state.zoom]);
-        state.alignmentGuides.forEach(guide => {
-            ctx.beginPath();
-            ctx.moveTo(guide.x1, guide.y1);
-            ctx.lineTo(guide.x2, guide.y2);
-            ctx.stroke();
-        });
-        ctx.restore();
-    }
 }
 
 export function drawScene(targetCtx, elementsToDraw) {
@@ -78,7 +58,7 @@ export function drawScene(targetCtx, elementsToDraw) {
                    targetCtx.closePath();
                    break;
            }
-           if (el.fillColor !== 'transparent' && el.fillColor) targetCtx.fill();
+           if (el.fillColor && el.fillColor !== 'transparent') targetCtx.fill();
            targetCtx.stroke();
        }
 
@@ -105,27 +85,29 @@ function drawSelection() {
             drawSelectionBox(el);
         }
     } else {
-        // Draw a bounding box for multiple selections
         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
         selectedElements.forEach(el => {
-            minX = Math.min(minX, el.x);
-            minY = Math.min(minY, el.y);
-            maxX = Math.max(maxX, el.x + (el.width || 0));
-            maxY = Math.max(maxY, el.y + (el.height || 0));
+            const width = el.width || (el.type === 'wall' ? Math.abs(el.x2 - el.x1) : 0);
+            const height = el.height || (el.type === 'wall' ? Math.abs(el.y2 - el.y1) : 0);
+            const elX = el.type === 'wall' ? Math.min(el.x1, el.x2) : el.x;
+            const elY = el.type === 'wall' ? Math.min(el.y1, el.y2) : el.y;
+            minX = Math.min(minX, elX);
+            minY = Math.min(minY, elY);
+            maxX = Math.max(maxX, elX + width);
+            maxY = Math.max(maxY, elY + height);
         });
         
-        const { ctx } = canvasElements;
-        ctx.save();
-        ctx.strokeStyle = '#8bc53f';
-        ctx.lineWidth = 2 / state.zoom;
-        ctx.setLineDash([6 / state.zoom, 3 / state.zoom]);
-        ctx.strokeRect(minX, minY, maxX - minX, maxY - minY);
-        ctx.restore();
+        dom.ctx.save();
+        dom.ctx.strokeStyle = '#8bc53f';
+        dom.ctx.lineWidth = 2 / state.zoom;
+        dom.ctx.setLineDash([6 / state.zoom, 3 / state.zoom]);
+        dom.ctx.strokeRect(minX, minY, maxX - minX, maxY - minY);
+        dom.ctx.restore();
     }
 }
 
 function drawSelectionBox(el) {
-    const { ctx } = canvasElements;
+    const { ctx } = dom;
     ctx.save();
     
     let boxX, boxY, boxWidth, boxHeight, centerX, centerY;
@@ -145,14 +127,12 @@ function drawSelectionBox(el) {
     ctx.lineWidth = 2 / state.zoom;
     ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
 
-    // Rotation Handle
     ctx.beginPath();
     ctx.arc(boxX + boxWidth/2, boxY - 15/state.zoom, 5/state.zoom, 0, 2 * Math.PI);
     ctx.fillStyle = 'white';
     ctx.fill();
     ctx.stroke();
 
-    // Resize Handles
     if (el.type !== 'text') {
         const handleSize = 8 / state.zoom;
         ctx.fillStyle = '#8bc53f';
@@ -165,7 +145,7 @@ function drawSelectionBox(el) {
 }
 
 function drawWallSelection(el) {
-    const { ctx } = canvasElements;
+    const { ctx } = dom;
     ctx.save();
     ctx.beginPath();
     ctx.moveTo(el.x1, el.y1);

@@ -1,6 +1,7 @@
+// Gerencia o estado central da aplicação e objetos globais
 export const state = {
     elements: [],
-    selectedElementIds: [], // Mudou para um array para seleção múltipla
+    selectedElementIds: [],
     activeTool: 'select',
     objectToAdd: null,
     shapeToAdd: null,
@@ -10,38 +11,41 @@ export const state = {
     zoom: 1,
     orientation: 'portrait',
     projectName: 'Projeto Sem Título',
-    alignmentGuides: [],
     history: [],
     historyIndex: -1,
-    dragAction: { type: null, elements: [], handle: null, startPos: null, originalElements: [] }
+    dragAction: { 
+        type: null, 
+        elements: [], 
+        handle: null, 
+        startPos: null, 
+        originalElements: [] 
+    }
 };
 
 export const images = {};
 export const objectTitles = {};
-export const canvasElements = {};
+export const dom = {}; // Referências aos elementos do DOM
 
-// Função para inicializar objetos globais que dependem do DOM
+// Pega referências dos elementos HTML para uso global
 export function initializeDOMReferences() {
-    canvasElements.canvas = document.getElementById('floorPlanCanvas');
-    canvasElements.ctx = canvasElements.canvas.getContext('2d');
-    canvasElements.canvasContainer = document.getElementById('canvas-container');
-    canvasElements.zoomDisplay = document.getElementById('zoom-display');
-
-    document.querySelectorAll('.object-btn').forEach(btn => {
-        const img = new Image();
-        const svgElement = btn.querySelector('svg');
-        const coloredSvg = svgElement.cloneNode(true);
-        coloredSvg.setAttribute('class', '');
-        const svgString = new XMLSerializer().serializeToString(coloredSvg);
-        const svgDataUrl = "data:image/svg+xml;base64," + btoa(svgString);
-        img.src = svgDataUrl;
-        images[btn.dataset.type] = img;
-    });
+    dom.canvas = document.getElementById('floorPlanCanvas');
+    dom.ctx = dom.canvas.getContext('2d');
+    dom.canvasContainer = document.getElementById('canvas-container');
+    dom.zoomDisplay = document.getElementById('zoom-display');
     
-    document.querySelectorAll('button[data-type]').forEach(btn => {
-        const titleElement = btn.querySelector('span');
-        if (titleElement) {
-            objectTitles[btn.dataset.type] = titleElement.textContent.trim();
+    document.querySelectorAll('.object-btn, .shape-btn').forEach(btn => {
+        const type = btn.dataset.type;
+        const span = btn.querySelector('span');
+        if (span) objectTitles[type] = span.textContent.trim();
+
+        if (btn.classList.contains('object-btn')) {
+            const img = new Image();
+            const svgElement = btn.querySelector('svg');
+            const coloredSvg = svgElement.cloneNode(true);
+            coloredSvg.setAttribute('class', ''); // Remove classes do tailwind para renderização limpa
+            const svgString = new XMLSerializer().serializeToString(coloredSvg);
+            img.src = "data:image/svg+xml;base64," + btoa(svgString);
+            images[type] = img;
         }
     });
 }

@@ -1,10 +1,10 @@
-import { state, images, objectTitles } from './state.js';
+import { state, images, objectTitles, dom } from './state.js';
 import { draw, drawScene } from './canvas.js';
 import { showNotification } from './actions.js';
 
 export function downloadPDF() {
     const originalIds = [...state.selectedElementIds];
-    state.selectedElementIds = [];
+    state.selectedElementIds = []; // Deseleciona temporariamente para uma captura limpa
     draw();
     
     setTimeout(() => {
@@ -15,19 +15,32 @@ export function downloadPDF() {
             if (typeof window.jspdf === 'undefined' || typeof window.jspdf.jsPDF === 'undefined') {
                 showNotification("Erro: A biblioteca jsPDF não foi carregada."); return;
             }
+
             const { jsPDF } = window.jspdf;
             const objectTypesInUse = [...new Set(state.elements.filter(el => el.type === 'object').map(el => el.subType))];
             
             const objectCounts = {};
-            state.elements.forEach(el => { if (el.type === 'object') { objectCounts[el.subType] = (objectCounts[el.subType] || 0) + 1; }});
+            state.elements.forEach(el => {
+                if (el.type === 'object') {
+                    objectCounts[el.subType] = (objectCounts[el.subType] || 0) + 1;
+                }
+            });
 
             let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-            state.elements.forEach(el => { getElementCorners(el).forEach(p => { minX = Math.min(minX, p.x); minY = Math.min(minY, p.y); maxX = Math.max(maxX, p.x); maxY = Math.max(maxY, p.y); }); });
+            state.elements.forEach(el => {
+                getElementCorners(el).forEach(p => {
+                    minX = Math.min(minX, p.x);
+                    minY = Math.min(minY, p.y);
+                    maxX = Math.max(maxX, p.x);
+                    maxY = Math.max(maxY, p.y);
+                });
+            });
 
-            if (maxX === -Infinity) { showNotification("O projeto está vazio."); return; }
+            if (maxX === -Infinity) {
+                showNotification("O projeto está vazio."); return;
+            }
 
             const pdf = new jsPDF({ orientation: state.orientation, unit: 'mm', format: 'a4' });
-            // ... (resto da lógica de geração do PDF, idêntica à original)
             const pdfWidthMM = pdf.internal.pageSize.getWidth();
             const pdfHeightMM = pdf.internal.pageSize.getHeight();
             const marginMM = 10;
@@ -57,12 +70,15 @@ export function downloadPDF() {
                 const legendIconCanvas = document.createElement('canvas');
                 const legendIconCtx = legendIconCanvas.getContext('2d');
                 legendIconCanvas.width = 64; legendIconCanvas.height = 64;
+                
                 objectTypesInUse.forEach(subType => {
                     const img = images[subType];
                     const count = objectCounts[subType] || 0;
                     const title = `${objectTitles[subType] || subType} (x${count})`;
                     legendIconCtx.clearRect(0, 0, 64, 64);
-                    if (img && img.complete) { legendIconCtx.drawImage(img, 0, 0, 64, 64); }
+                    if (img && img.complete) {
+                        legendIconCtx.drawImage(img, 0, 0, 64, 64);
+                    }
                     const iconPngDataUrl = legendIconCanvas.toDataURL('image/png');
                     pdf.addImage(iconPngDataUrl, 'PNG', marginMM, legendY, iconSizeMM, iconSizeMM);
                     pdf.text(title, marginMM + iconSizeMM + 2, legendY + iconSizeMM / 2 + 2);
@@ -132,21 +148,20 @@ export function downloadPDF() {
             console.error("Erro ao gerar PDF:", error);
             showNotification(`Ocorreu um erro ao gerar o PDF. (${error.message || error})`);
         } finally {
-            state.selectedElementIds = originalIds;
+            state.selectedElementIds = originalIds; // Restaura a seleção
             draw();
         }
     }, 100);
 }
 
-// Helper function needed for PDF generation
 function getElementCorners(el) {
     if (el.type === 'wall') {
         return [{x: el.x1, y: el.y1}, {x: el.x2, y: el.y2}];
     }
     let { x, y, rotation, width, height } = el;
     if (el.type === 'text') {
-        // This is a simplification; ideally, you'd use a canvas context to measure
-        width = el.text.length * (el.fontSize / 2); 
+        dom.ctx.font = `${el.fontSize}px ${el.fontFamily}`;
+        width = dom.ctx.measureText(el.text).width;
     }
     const cx = x + width / 2;
     const cy = y + height / 2;

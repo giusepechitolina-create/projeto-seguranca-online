@@ -1,6 +1,8 @@
-import { state, canvasElements } from './state.js';
+import { state, dom } from './state.js';
 import { draw } from './canvas.js';
-import { saveState, toggleControls, updateUndoRedoButtons } from './main.js';
+import { saveState, toggleControls } from './main.js';
+
+let notificationTimeout;
 
 export function deleteSelected() {
     if (state.selectedElementIds.length > 0) {
@@ -15,7 +17,6 @@ export function deleteSelected() {
 export function duplicateSelected() {
     const selectedElements = state.elements.filter(el => state.selectedElementIds.includes(el.id));
     if (selectedElements.length > 0 && selectedElements.every(el => el.type !== 'wall')) {
-        const newElements = [];
         const newIds = [];
         selectedElements.forEach(el => {
             const newElement = JSON.parse(JSON.stringify(el));
@@ -34,11 +35,14 @@ export function duplicateSelected() {
 export function updateSelectedElement(props) {
     const selectedElements = state.elements.filter(el => state.selectedElementIds.includes(el.id));
     if (selectedElements.length > 0) {
-        selectedElements.forEach(el => {
-            Object.assign(el, props);
-        });
-        if (props.strokeColor) document.getElementById('strokeColorPreview').style.backgroundColor = props.strokeColor;
-        if (props.fillColor) document.getElementById('fillColorPreview').style.backgroundColor = props.fillColor;
+        selectedElements.forEach(el => Object.assign(el, props));
+        
+        if (selectedElements.length === 1) {
+            const el = selectedElements[0];
+            if (props.strokeColor) document.getElementById('strokeColorPreview').style.backgroundColor = el.strokeColor;
+            if (props.fillColor) document.getElementById('fillColorPreview').style.backgroundColor = el.fillColor;
+        }
+        
         saveState();
         draw();
     }
@@ -48,7 +52,7 @@ export function editText(element) {
     const textarea = document.createElement('textarea');
     document.body.appendChild(textarea);
     
-    const canvasRect = canvasElements.canvas.getBoundingClientRect();
+    const canvasRect = dom.canvas.getBoundingClientRect();
     textarea.value = element.text;
     textarea.style.position = 'absolute';
     textarea.style.left = `${canvasRect.left + element.x * state.zoom + state.pan.x}px`;
@@ -101,7 +105,7 @@ export function fitToScreen() {
 }
 
 export function updateZoomDisplay() {
-    canvasElements.zoomDisplay.textContent = `${Math.round(state.zoom * 100)}%`;
+    dom.zoomDisplay.textContent = `${Math.round(state.zoom * 100)}%`;
 }
 
 export function showNotification(message, isError = true) {
@@ -110,8 +114,8 @@ export function showNotification(message, isError = true) {
     notification.style.backgroundColor = isError ? '#ef4444' : '#22c55e';
     notification.style.transform = 'translateX(0)';
     
-    clearTimeout(window.notificationTimeout);
-    window.notificationTimeout = setTimeout(() => {
+    clearTimeout(notificationTimeout);
+    notificationTimeout = setTimeout(() => {
         notification.style.transform = 'translateX(120%)';
     }, 3000);
 }
