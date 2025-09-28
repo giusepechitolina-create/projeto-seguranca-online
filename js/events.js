@@ -158,20 +158,21 @@ function onMouseDown(e) {
                     state.selectedElementIds.push(elementUnderMouse.id);
                 }
             }
-        } else {
-            if (elementUnderMouse) {
-                if (!state.selectedElementIds.includes(elementUnderMouse.id)) {
-                    state.selectedElementIds = [elementUnderMouse.id];
-                }
-            } else {
-                state.selectedElementIds = [];
-            }
+        } else { // Lógica de seleção normal
+    if (elementUnderMouse) {
+        if (!state.selectedElementIds.includes(elementUnderMouse.id)) {
+            state.selectedElementIds = [elementUnderMouse.id];
         }
+        // Prepara para mover
+        const selectedElements = state.elements.filter(el => state.selectedElementIds.includes(el.id));
+        state.dragAction = { type: 'move', elements: selectedElements, startPos: mousePos, originalElements: JSON.parse(JSON.stringify(selectedElements)) };
+    } else {
+        // Se clicou no vazio, inicia a seleção em área (marquee)
+        state.selectedElementIds = [];
+        state.marquee = { x1: mousePos.x, y1: mousePos.y, x2: mousePos.x, y2: mousePos.y };
+    }
+}
 
-        if (state.selectedElementIds.length > 0) {
-            const selectedElements = state.elements.filter(el => state.selectedElementIds.includes(el.id));
-            state.dragAction = { type: 'move', elements: selectedElements, startPos: mousePos, originalElements: JSON.parse(JSON.stringify(selectedElements)) };
-        }
         
     } else if (state.activeTool === 'wall') {
         const wall = { id: Date.now(), type: 'wall', x1: mousePos.x, y1: mousePos.y, x2: mousePos.x, y2: mousePos.y };
@@ -217,6 +218,14 @@ function onMouseDown(e) {
 
 function onMouseMove(e) {
     const mousePos = getEventPos(e);
+
+    // NOVO BLOCO PARA ATUALIZAR O MARQUEE
+    if (state.marquee) {
+        state.marquee.x2 = mousePos.x;
+        state.marquee.y2 = mousePos.y;
+        draw();
+        return;
+    }
 
     if (state.pan.active) {
         const dx = e.clientX - state.pan.start.x; 
@@ -318,6 +327,27 @@ function onMouseMove(e) {
 }
 
 function onMouseUp() {
+    // NOVO BLOCO PARA FINALIZAR A SELEÇÃO EM ÁREA
+    if (state.marquee) {
+        const x1 = Math.min(state.marquee.x1, state.marquee.x2);
+        const y1 = Math.min(state.marquee.y1, state.marquee.y2);
+        const x2 = Math.max(state.marquee.x1, state.marquee.x2);
+        const y2 = Math.max(state.marquee.y1, state.marquee.y2);
+        
+        const selectedIds = [];
+        state.elements.forEach(el => {
+            const elCenterX = el.x + (el.width || 0) / 2;
+            const elCenterY = el.y + (el.height || 0) / 2;
+            if (elCenterX > x1 && elCenterX < x2 && elCenterY > y1 && elCenterY < y2) {
+                selectedIds.push(el.id);
+            }
+        });
+        state.selectedElementIds = selectedIds;
+        
+        state.marquee = null; // Limpa o marquee
+        toggleControls(state.selectedElementIds.length === 1 ? state.elements.find(el => el.id === state.selectedElementIds[0]) : null);
+    }
+
     if (state.dragAction.type) {
         saveState();
     }

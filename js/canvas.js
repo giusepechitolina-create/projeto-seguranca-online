@@ -11,6 +11,7 @@ export function draw() {
     
     drawScene(ctx, state.elements);
     drawSelection();
+    drawMarquee(); // <<<<<< ADICIONE ESTA LINHA
     
     ctx.restore();
 }
@@ -170,4 +171,20 @@ export function getResizeHandles(el) {
         'bottom-left': { x: -hw, y: hh, cursor: 'nesw-resize' },
         'bottom-right': { x: hw, y: hh, cursor: 'nwse-resize' }
     };
+}
+
+function drawMarquee() {
+    if (!state.marquee) return;
+
+    const { ctx } = dom;
+    const width = state.marquee.x2 - state.marquee.x1;
+    const height = state.marquee.y2 - state.marquee.y1;
+
+    ctx.save();
+    ctx.fillStyle = 'rgba(139, 197, 63, 0.2)'; // Verde semi-transparente
+    ctx.strokeStyle = 'rgba(26, 46, 79, 0.6)'; // Azul escuro semi-transparente
+    ctx.lineWidth = 1 / state.zoom;
+    ctx.fillRect(state.marquee.x1, state.marquee.y1, width, height);
+    ctx.strokeRect(state.marquee.x1, state.marquee.y1, width, height);
+    ctx.restore();
 }

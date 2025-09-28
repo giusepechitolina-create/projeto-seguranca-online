@@ -20,6 +20,7 @@ export const state = {
         startPos: null, 
         originalElements: [] 
     }
+    marquee: null // Armazena as coordenadas {x1, y1, x2, y2} do retângulo de seleção
 };
 
 export const images = {};
