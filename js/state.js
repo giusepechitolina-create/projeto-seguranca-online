@@ -19,7 +19,7 @@ export const state = {
         handle: null, 
         startPos: null, 
         originalElements: [] 
-    }
+    },
     marquee: null // Armazena as coordenadas {x1, y1, x2, y2} do retângulo de seleção
 };
 

@@ -3,8 +3,7 @@ import { draw, getResizeHandles } from './canvas.js';
 import { saveState, toggleControls, updateActiveToolButton, setCanvasSize } from './main.js';
 import { editText, deleteSelected, duplicateSelected } from './actions.js';
 
-// --- FUNÇÕES AUXILIARES DE EVENTOS ---
-
+// --- FUNÇÕES AUXILIARES DE EVENTOS (sem alterações) ---
 function getEventPos(e) {
     const rect = dom.canvas.getBoundingClientRect();
     let clientX, clientY;
@@ -20,7 +19,6 @@ function getEventPos(e) {
         y: (clientY - rect.top - state.pan.y) / state.zoom 
     };
 }
-
 function getElementAtPos(x, y) {
     for (let i = state.elements.length - 1; i >= 0; i--) {
         const el = state.elements[i];
@@ -61,7 +59,6 @@ function getElementAtPos(x, y) {
     }
     return null;
 }
-
 function getHandleAtPos(el, x, y) {
     const handleHitboxSize = 8 / state.zoom;
     if (el.type === 'wall') {
@@ -102,7 +99,6 @@ function getHandleAtPos(el, x, y) {
     }
     return null;
 }
-
 function distToSegment(p, v, w) {
     const l2 = (v.x - w.x)**2 + (v.y - w.y)**2;
     if (l2 === 0) return Math.sqrt((p.x - v.x)**2 + (p.y - v.y)**2);
@@ -111,7 +107,6 @@ function distToSegment(p, v, w) {
     const closestPoint = { x: v.x + t * (w.x - v.x), y: v.y + t * (w.y - v.y) };
     return Math.sqrt((p.x - closestPoint.x)**2 + (p.y - closestPoint.y)**2);
 }
-
 function isPointInTriangle(p, p0, p1, p2) {
     const dX = p.x - p2.x;
     const dY = p.y - p2.y;
@@ -158,21 +153,22 @@ function onMouseDown(e) {
                     state.selectedElementIds.push(elementUnderMouse.id);
                 }
             }
-        } else { // Lógica de seleção normal
-    if (elementUnderMouse) {
-        if (!state.selectedElementIds.includes(elementUnderMouse.id)) {
-            state.selectedElementIds = [elementUnderMouse.id];
+        } else {
+            if (elementUnderMouse) {
+                if (!state.selectedElementIds.includes(elementUnderMouse.id)) {
+                    state.selectedElementIds = [elementUnderMouse.id];
+                }
+            } else {
+                state.selectedElementIds = [];
+                state.marquee = { x1: mousePos.x, y1: mousePos.y, x2: mousePos.x, y2: mousePos.y };
+            }
         }
-        // Prepara para mover
-        const selectedElements = state.elements.filter(el => state.selectedElementIds.includes(el.id));
-        state.dragAction = { type: 'move', elements: selectedElements, startPos: mousePos, originalElements: JSON.parse(JSON.stringify(selectedElements)) };
-    } else {
-        // Se clicou no vazio, inicia a seleção em área (marquee)
-        state.selectedElementIds = [];
-        state.marquee = { x1: mousePos.x, y1: mousePos.y, x2: mousePos.x, y2: mousePos.y };
-    }
-}
 
+        // Prepara para mover APENAS se não estivermos fazendo um marquee
+        if (state.selectedElementIds.length > 0 && !state.marquee) {
+            const selectedElements = state.elements.filter(el => state.selectedElementIds.includes(el.id));
+            state.dragAction = { type: 'move', elements: selectedElements, startPos: mousePos, originalElements: JSON.parse(JSON.stringify(selectedElements)) };
+        }
         
     } else if (state.activeTool === 'wall') {
         const wall = { id: Date.now(), type: 'wall', x1: mousePos.x, y1: mousePos.y, x2: mousePos.x, y2: mousePos.y };
@@ -193,33 +189,28 @@ function onMouseDown(e) {
     } else if (state.activeTool === 'shape') {
         const defaultSize = 50;
         const shape = { 
-            id: Date.now(), 
-            type: 'shape', 
-            subType: state.shapeToAdd, 
-            x: mousePos.x - defaultSize / 2,
-            y: mousePos.y - defaultSize / 2, 
-            width: defaultSize, 
-            height: defaultSize, 
-            rotation: 0, 
-            strokeColor: '#333333', 
-            fillColor: 'transparent', 
-            name: ''
+            id: Date.now(), type: 'shape', subType: state.shapeToAdd, 
+            x: mousePos.x - defaultSize / 2, y: mousePos.y - defaultSize / 2, 
+            width: defaultSize, height: defaultSize, rotation: 0, 
+            strokeColor: '#333333', fillColor: 'transparent', name: ''
         };
         state.elements.push(shape);
         state.activeTool = 'select';
         state.selectedElementIds = [shape.id];
         updateActiveToolButton();
         saveState();
-    } // A chave de fechamento estava aqui, causando o erro. Foi movida para baixo.
+    }
     
     toggleControls(state.selectedElementIds.length === 1 ? state.elements.find(el => el.id === state.selectedElementIds[0]) : null);
     draw();
 }
 
+// ... O resto do arquivo (onMouseMove, onMouseUp, etc.) permanece o mesmo da sua versão enviada anteriormente.
+// Vou incluí-lo aqui para garantir que você tenha o arquivo completo e correto.
+
 function onMouseMove(e) {
     const mousePos = getEventPos(e);
 
-    // NOVO BLOCO PARA ATUALIZAR O MARQUEE
     if (state.marquee) {
         state.marquee.x2 = mousePos.x;
         state.marquee.y2 = mousePos.y;
@@ -238,7 +229,6 @@ function onMouseMove(e) {
     }
 
     if (!state.isDrawing) {
-        // Lógica de cursor pode ser adicionada aqui
         return;
     }
     
@@ -327,7 +317,6 @@ function onMouseMove(e) {
 }
 
 function onMouseUp() {
-    // NOVO BLOCO PARA FINALIZAR A SELEÇÃO EM ÁREA
     if (state.marquee) {
         const x1 = Math.min(state.marquee.x1, state.marquee.x2);
         const y1 = Math.min(state.marquee.y1, state.marquee.y2);
@@ -344,7 +333,7 @@ function onMouseUp() {
         });
         state.selectedElementIds = selectedIds;
         
-        state.marquee = null; // Limpa o marquee
+        state.marquee = null;
         toggleControls(state.selectedElementIds.length === 1 ? state.elements.find(el => el.id === state.selectedElementIds[0]) : null);
     }
 
