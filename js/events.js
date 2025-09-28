@@ -3,6 +3,14 @@ import { draw, getResizeHandles } from './canvas.js';
 import { saveState, toggleControls, updateActiveToolButton, setCanvasSize } from './main.js';
 import { editText, deleteSelected, duplicateSelected } from './actions.js';
 
+// Rastreia o estado do gesto de pinça/pan com dois dedos
+let twoFingerTouch = {
+    startDist: 0,
+    startZoom: 1,
+    startPan: { x: 0, y: 0 },
+    lastMidpoint: { x: 0, y: 0 }
+};
+
 // --- FUNÇÕES AUXILIARES DE EVENTOS (sem alterações) ---
 function getEventPos(e) {
     const rect = dom.canvas.getBoundingClientRect();
@@ -370,12 +378,85 @@ function onKeyDown(e) {
     if (e.key.toLowerCase() === 'w') { state.activeTool = 'wall'; updateActiveToolButton(); }
     if (e.key.toLowerCase() === 't') { state.activeTool = 'text'; updateActiveToolButton(); }
 }
+function onTouchStart(e) {
+    e.preventDefault(); // Previne o comportamento padrão do navegador (scroll, etc.)
 
+    // Se o gesto já começa com dois dedos, é para Pan/Zoom.
+    if (e.touches.length === 2) {
+        state.isDrawing = false; // Garante que não estamos desenhando/movendo objetos
+        state.pan.active = true; // Ativa o modo de pan
+
+        const t1 = e.touches[0];
+        const t2 = e.touches[1];
+
+        // Calcula a distância inicial entre os dedos
+        const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+        twoFingerTouch.startDist = dist;
+        twoFingerTouch.startZoom = state.zoom;
+
+        // Calcula o ponto médio para o Pan
+        const midpoint = { 
+            x: (t1.clientX + t2.clientX) / 2, 
+            y: (t1.clientY + t2.clientY) / 2 
+        };
+        twoFingerTouch.lastMidpoint = midpoint;
+        twoFingerTouch.startPan = { ...state.pan }; // Salva a posição inicial do pan
+
+    } else if (e.touches.length === 1) {
+        // Se for um toque único, usa a mesma lógica do onMouseDown
+        onMouseDown(e.touches[0]);
+    }
+}
+function onTouchMove(e) {
+    e.preventDefault();
+
+    // Se estamos movendo com dois dedos...
+    if (e.touches.length === 2 && state.pan.active) {
+        const t1 = e.touches[0];
+        const t2 = e.touches[1];
+        
+        // --- LÓGICA DO ZOOM ---
+        const currentDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+        const zoomFactor = currentDist / twoFingerTouch.startDist;
+        state.zoom = Math.max(0.1, Math.min(5, twoFingerTouch.startZoom * zoomFactor)); // Limita o zoom
+        updateZoomDisplay();
+
+        // --- LÓGICA DO PAN ---
+        const midpoint = { 
+            x: (t1.clientX + t2.clientX) / 2, 
+            y: (t1.clientY + t2.clientY) / 2 
+        };
+        const dx = midpoint.x - twoFingerTouch.lastMidpoint.x;
+        const dy = midpoint.y - twoFingerTouch.lastMidpoint.y;
+
+        state.pan.x += dx;
+        state.pan.y += dy;
+        
+        twoFingerTouch.lastMidpoint = midpoint;
+
+        draw(); // Redesenha o canvas com o novo zoom e pan
+
+    } else if (e.touches.length === 1) {
+        // Se for um toque único, usa a mesma lógica do onMouseMove
+        onMouseMove(e.touches[0]);
+    }
+}
+function onTouchEnd(e) {
+    // Se estávamos em um gesto de dois dedos e agora não estamos mais, finaliza a ação
+    if (state.pan.active && e.touches.length < 2) {
+        state.pan.active = false;
+    }
+    
+    // Se não há mais toques na tela, usa a lógica do onMouseUp
+    if (e.touches.length === 0) {
+        onMouseUp(e.changedTouches[0]);
+    }
+}
 export function addEventListeners() {
     window.addEventListener('resize', setCanvasSize);
-    dom.canvas.addEventListener('mousedown', onMouseDown);
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
-    dom.canvas.addEventListener('dblclick', onDblClick);
-    document.addEventListener('keydown', onKeyDown);
+   // Eventos de Toque
+    dom.canvas.addEventListener('touchstart', onTouchStart, { passive: false });
+    dom.canvas.addEventListener('touchmove', onTouchMove, { passive: false });
+    dom.canvas.addEventListener('touchend', onTouchEnd);
+    dom.canvas.addEventListener('touchcancel', onTouchEnd);
 }
