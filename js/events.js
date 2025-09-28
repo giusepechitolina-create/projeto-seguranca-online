@@ -139,62 +139,44 @@ function onMouseDown(e) {
     }
     
     if (state.activeTool === 'select') {
-        const elementUnderMouse = getElementAtPos(mousePos.x, mousePos.y);
-        const singleSelectedEl = state.selectedElementIds.length === 1 ? state.elements.find(el => el.id === state.selectedElementIds[0]) : null;
-        const handleUnderMouse = singleSelectedEl ? getHandleAtPos(singleSelectedEl, mousePos.x, mousePos.y) : null;
+    const singleSelectedEl = state.selectedElementIds.length === 1 ? state.elements.find(el => el.id === state.selectedElementIds[0]) : null;
+    const handleUnderMouse = singleSelectedEl ? getHandleAtPos(singleSelectedEl, mousePos.x, mousePos.y) : null;
 
-        if (handleUnderMouse) {
-            state.dragAction = { type: handleUnderMouse, elements: [singleSelectedEl], handle: handleUnderMouse, startPos: mousePos, originalElements: [JSON.parse(JSON.stringify(singleSelectedEl))] };
-            draw();
-            return;
+    // CORREÇÃO: A verificação do handle vem ANTES de qualquer outra lógica de seleção.
+    if (handleUnderMouse) {
+        state.dragAction = { type: handleUnderMouse, elements: [singleSelectedEl], handle: handleUnderMouse, startPos: mousePos, originalElements: [JSON.parse(JSON.stringify(singleSelectedEl))] };
+        draw();
+        return; // Impede que o resto do código de seleção seja executado.
+    }
+
+    const elementUnderMouse = getElementAtPos(mousePos.x, mousePos.y);
+    
+    // Lógica de seleção (Shift para adicionar/remover)
+    if (e.shiftKey) {
+        if (elementUnderMouse) {
+            if (state.selectedElementIds.includes(elementUnderMouse.id)) {
+                state.selectedElementIds = state.selectedElementIds.filter(id => id !== elementUnderMouse.id);
+            } else {
+                state.selectedElementIds.push(elementUnderMouse.id);
+            }
         }
-        
-        if (e.shiftKey) {
-            if (elementUnderMouse) {
-                if (state.selectedElementIds.includes(elementUnderMouse.id)) {
-                    state.selectedElementIds = state.selectedElementIds.filter(id => id !== elementUnderMouse.id);
-                } else {
-                    state.selectedElementIds.push(elementUnderMouse.id);
-                }
+    } else { // Lógica de seleção normal
+        if (elementUnderMouse) {
+            if (!state.selectedElementIds.includes(elementUnderMouse.id)) {
+                state.selectedElementIds = [elementUnderMouse.id];
             }
         } else {
-            if (elementUnderMouse) {
-                if (!state.selectedElementIds.includes(elementUnderMouse.id)) {
-                    state.selectedElementIds = [elementUnderMouse.id];
-                }
-            } else {
-                state.selectedElementIds = [];
-            }
+            state.selectedElementIds = [];
         }
-
-        if (state.selectedElementIds.length > 0) {
-            const selectedElements = state.elements.filter(el => state.selectedElementIds.includes(el.id));
-            state.dragAction = { type: 'move', elements: selectedElements, startPos: mousePos, originalElements: JSON.parse(JSON.stringify(selectedElements)) };
-        }
-    } else if (state.activeTool === 'wall') {
-        const wall = { id: Date.now(), type: 'wall', x1: mousePos.x, y1: mousePos.y, x2: mousePos.x, y2: mousePos.y };
-        state.elements.push(wall);
-        state.selectedElementIds = [wall.id];
-    } else if (state.activeTool === 'add_object') {
-        const object = { id: Date.now(), type: 'object', subType: state.objectToAdd, x: mousePos.x - 25, y: mousePos.y - 25, width: 50, height: 50, rotation: 0, name: '' };
-        state.elements.push(object);
-        state.activeTool = 'select'; state.selectedElementIds = [object.id];
-        updateActiveToolButton();
-        saveState();
-    } else if (state.activeTool === 'text') {
-        const text = { id: Date.now(), type: 'text', text: 'Novo Texto', x: mousePos.x, y: mousePos.y, fontSize: 16, fontFamily: 'Montserrat', rotation: 0 };
-        state.elements.push(text);
-        state.activeTool = 'select'; state.selectedElementIds = [text.id];
-        updateActiveToolButton();
-        saveState();
-    } else if (state.activeTool === 'shape') {
-        const shape = { id: Date.now(), type: 'shape', subType: state.shapeToAdd, x: mousePos.x, y: mousePos.y, width: 0, height: 0, rotation: 0, strokeColor: '#333333', fillColor: 'transparent', name: ''};
-        state.elements.push(shape);
-        state.selectedElementIds = [shape.id];
-        state.dragAction = { type: 'create', elements: [shape], startPos: mousePos, originalElements: [JSON.parse(JSON.stringify(shape))] };
     }
+
+    // Prepara para mover os elementos selecionados
+    if (state.selectedElementIds.length > 0) {
+        const selectedElements = state.elements.filter(el => state.selectedElementIds.includes(el.id));
+        state.dragAction = { type: 'move', elements: selectedElements, startPos: mousePos, originalElements: JSON.parse(JSON.stringify(selectedElements)) };
+    }
+
     toggleControls(state.selectedElementIds.length === 1 ? state.elements.find(el => el.id === state.selectedElementIds[0]) : null);
-    draw();
 }
 
 function onMouseMove(e) {
@@ -233,21 +215,49 @@ function onMouseMove(e) {
                 }
             }
         });
-    } else if (state.dragAction.type === 'rotate') {
-        const el = state.dragAction.elements[0];
-        const orig = state.dragAction.originalElements[0];
-        let centerX = orig.x + orig.width / 2;
-        let centerY = orig.y + orig.height / 2;
-        const startAngle = Math.atan2(state.dragAction.startPos.y - centerY, state.dragAction.startPos.x - centerX);
-        const currentAngle = Math.atan2(mousePos.y - centerY, mousePos.x - centerX);
-        let rotation = orig.rotation + (currentAngle - startAngle) * 180 / Math.PI;
+    } } else if (['top-left', 'top-right', 'bottom-left', 'bottom-right'].includes(state.dragAction.type)) { // Lógica de Redimensionamento
+    const el = state.dragAction.elements[0];
+    const orig = state.dragAction.originalElements[0];
+    const handle = state.dragAction.type;
 
-        if (e.shiftKey) {
-            const snapAngle = 45;
-            rotation = Math.round(rotation / snapAngle) * snapAngle;
-        }
-        el.rotation = rotation;
-    } else if (state.dragAction.type === 'create' && state.dragAction.elements[0].type === 'shape') {
+    // Converte o movimento do mouse (dx, dy) para o sistema de coordenadas rotacionado do objeto
+    const angle = -orig.rotation * Math.PI / 180;
+    const rotatedDx = dx * Math.cos(angle) - dy * Math.sin(angle);
+    const rotatedDy = dx * Math.sin(angle) + dy * Math.cos(angle);
+    
+    let newWidth = orig.width;
+    let newHeight = orig.height;
+
+    if (handle.includes('right')) newWidth = Math.max(10, orig.width + rotatedDx);
+    if (handle.includes('left')) newWidth = Math.max(10, orig.width - rotatedDx);
+    if (handle.includes('bottom')) newHeight = Math.max(10, orig.height + rotatedDy);
+    if (handle.includes('top')) newHeight = Math.max(10, orig.height - rotatedDy);
+
+    if (el.subType === 'circle') {
+        newWidth = Math.max(newWidth, newHeight);
+        newHeight = newWidth;
+    }
+    
+    el.width = newWidth;
+    el.height = newHeight;
+
+    // Recalcula a posição X, Y para que o objeto pareça crescer a partir do lado oposto
+    // (Esta é uma matemática um pouco complexa, mas é o que faz o resize funcionar corretamente)
+    const dw = newWidth - orig.width;
+    const dh = newHeight - orig.height;
+
+    const finalAngle = orig.rotation * Math.PI / 180;
+    let offsetX = 0;
+    let offsetY = 0;
+    
+    if (handle.includes('left')) offsetX = dw / 2;
+    if (handle.includes('right')) offsetX = -dw / 2;
+    if (handle.includes('top')) offsetY = dh / 2;
+    if (handle.includes('bottom')) offsetY = -dh / 2;
+
+    el.x = orig.x - (offsetX * Math.cos(finalAngle) - offsetY * Math.sin(finalAngle));
+    el.y = orig.y - (offsetX * Math.sin(finalAngle) + offsetY * Math.cos(finalAngle));
+} else if (state.dragAction.type === 'create' && state.dragAction.elements[0].type === 'shape') {
         const shape = state.dragAction.elements[0];
         shape.width = Math.abs(dx);
         shape.height = Math.abs(dy);
