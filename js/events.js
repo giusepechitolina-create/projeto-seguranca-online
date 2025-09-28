@@ -190,25 +190,26 @@ function onMouseDown(e) {
         updateActiveToolButton();
         saveState();
     } else if (state.activeTool === 'shape') {
-    const defaultSize = 50; // Tamanho padrão, igual aos equipamentos
-    const shape = { 
-        id: Date.now(), 
-        type: 'shape', 
-        subType: state.shapeToAdd, 
-        x: mousePos.x - defaultSize / 2, // Centraliza a forma no clique
-        y: mousePos.y - defaultSize / 2, 
-        width: defaultSize, 
-        height: defaultSize, 
-        rotation: 0, 
-        strokeColor: '#333333', 
-        fillColor: 'transparent', 
-        name: ''
-    };
-    state.elements.push(shape);
-    state.activeTool = 'select'; // Volta para a ferramenta de seleção
-    state.selectedElementIds = [shape.id]; // Seleciona a nova forma
-    updateActiveToolButton(); // Atualiza o botão da barra de ferramentas
-    saveState(); // Salva a nova forma no histórico}
+        const defaultSize = 50;
+        const shape = { 
+            id: Date.now(), 
+            type: 'shape', 
+            subType: state.shapeToAdd, 
+            x: mousePos.x - defaultSize / 2,
+            y: mousePos.y - defaultSize / 2, 
+            width: defaultSize, 
+            height: defaultSize, 
+            rotation: 0, 
+            strokeColor: '#333333', 
+            fillColor: 'transparent', 
+            name: ''
+        };
+        state.elements.push(shape);
+        state.activeTool = 'select';
+        state.selectedElementIds = [shape.id];
+        updateActiveToolButton();
+        saveState();
+    } // A chave de fechamento estava aqui, causando o erro. Foi movida para baixo.
     
     toggleControls(state.selectedElementIds.length === 1 ? state.elements.find(el => el.id === state.selectedElementIds[0]) : null);
     draw();
