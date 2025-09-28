@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Planta Baixa - SeguranÁa EletrÙnica</title>
+    <title>Planta Baixa - Seguran√ßa Eletr√¥nica</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -29,7 +29,7 @@
         .tool-btn.active svg {
             stroke: var(--rs-dark-blue);
         }
-        /* Esconde os controles por padr„o */
+        /* Esconde os controles por padr√£o */
         #textControls, #shapeControls, #nameControls, #doorWindowControls {
             display: none;
         }
@@ -62,9 +62,9 @@
 </head>
 <body class="bg-gray-200 flex flex-col h-screen overflow-hidden">
 
-    <!-- CabeÁalho com Controles -->
+    <!-- Cabe√ßalho com Controles -->
     <header class="bg-[var(--rs-dark-blue)] text-white shadow-md p-2 flex items-center justify-between z-20 flex-wrap gap-2">
-        <h1 class="text-lg lg:text-xl font-bold">Projeto de seguranÁa</h1>
+        <h1 class="text-lg lg:text-xl font-bold">Projeto de seguran√ßa</h1>
         <div class="flex items-center gap-2 lg:gap-4 flex-wrap justify-end">
              <!-- Controles de Nome de Objeto -->
             <div id="nameControls" class="items-center gap-2">
@@ -75,11 +75,11 @@
                 <label for="doorWindowWidth" class="text-sm">Largura:</label>
                 <input type="number" id="doorWindowWidth" min="20" max="200" step="5" class="border bg-gray-100 text-black border-gray-300 rounded-md px-2 py-1 text-sm w-20 focus:outline-none focus:ring-2 focus:ring-[var(--rs-green)]">
                 <button id="flipBtn" class="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded-md text-sm font-bold flex items-center gap-2" title="Inverter Lado">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2h- h¸cre-4v20h4v-20zM3 2v20h4V2H3z"/><path d="M21 12H7"/></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2h- h√ºcre-4v20h4v-20zM3 2v20h4V2H3z"/><path d="M21 12H7"/></svg>
                     Inverter
                 </button>
             </div>
-            <!-- Controles de Formas (visÌveis quando uma forma È selecionada) -->
+            <!-- Controles de Formas (vis√≠veis quando uma forma √© selecionada) -->
             <div id="shapeControls" class="items-center gap-3">
                 <div class="color-picker-wrapper bg-white">
                     <span class="text-xs text-gray-600 pl-1">Borda:</span>
@@ -92,7 +92,7 @@
                     <input type="color" id="fillColorPicker" value="#ffffff">
                 </div>
             </div>
-             <!-- Controles de Texto (visÌveis quando um texto È selecionado) -->
+             <!-- Controles de Texto (vis√≠veis quando um texto √© selecionado) -->
             <div id="textControls" class="items-center gap-2">
                 <select id="fontFamilySelect" class="border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--rs-green)] text-black">
                     <option value="Montserrat">Montserrat</option>
@@ -110,12 +110,12 @@
                 </button>
             </div>
 
-            <input type="text" id="projectName" value="Projeto Sem TÌtulo" class="border bg-gray-100 text-black border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--rs-green)]">
+            <input type="text" id="projectName" value="Projeto Sem T√≠tulo" class="border bg-gray-100 text-black border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--rs-green)]">
             <div class="flex items-center gap-2">
-                <button id="portraitBtn" title="OrientaÁ„o Retrato" class="p-2 rounded-md tool-btn active bg-gray-700">
+                <button id="portraitBtn" title="Orienta√ß√£o Retrato" class="p-2 rounded-md tool-btn active bg-gray-700">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="2" ry="2"></rect></svg>
                 </button>
-                <button id="landscapeBtn" title="OrientaÁ„o Paisagem" class="p-2 rounded-md tool-btn bg-gray-700">
+                <button id="landscapeBtn" title="Orienta√ß√£o Paisagem" class="p-2 rounded-md tool-btn bg-gray-700">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2" ry="2"></rect></svg>
                 </button>
             </div>
@@ -148,15 +148,15 @@
             <h2 class="hidden lg:block text-sm font-bold text-gray-400 mb-2 px-2 w-full">FORMAS</h2>
             <button class="shape-btn flex-shrink-0 flex flex-col lg:flex-row items-center gap-1 lg:gap-3 p-2 lg:px-2 lg:py-2 rounded-md tool-btn lg:w-full" data-type="rectangle">
                 <svg xmlns="http://www.w3.org/2000/svg" class="text-white" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
-                <span class="text-xs lg:text-sm font-medium">Ret‚ngulo</span>
+                <span class="text-xs lg:text-sm font-medium">Ret√¢ngulo</span>
             </button>
             <button class="shape-btn flex-shrink-0 flex flex-col lg:flex-row items-center gap-1 lg:gap-3 p-2 lg:px-2 lg:py-2 rounded-md tool-btn lg:w-full" data-type="circle">
                 <svg xmlns="http://www.w3.org/2000/svg" class="text-white" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle></svg>
-                <span class="text-xs lg:text-sm font-medium">CÌrculo</span>
+                <span class="text-xs lg:text-sm font-medium">C√≠rculo</span>
             </button>
             <button class="shape-btn flex-shrink-0 flex flex-col lg:flex-row items-center gap-1 lg:gap-3 p-2 lg:px-2 lg:py-2 rounded-md tool-btn lg:w-full" data-type="triangle">
                 <svg xmlns="http://www.w3.org/2000/svg" class="text-white" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path></svg>
-                <span class="text-xs lg:text-sm font-medium">Tri‚ngulo</span>
+                <span class="text-xs lg:text-sm font-medium">Tri√¢ngulo</span>
             </button>
             
             <div class="h-full lg:h-auto border-l lg:border-t border-gray-700 mx-2 my-0 lg:my-4 lg:mx-0 lg:w-full"></div>
@@ -176,7 +176,7 @@
             <h2 class="hidden lg:block text-sm font-bold text-gray-400 mb-2 px-2 w-full">EQUIPAMENTOS</h2>
             <button class="object-btn flex-shrink-0 flex flex-col lg:flex-row items-center gap-1 lg:gap-3 p-2 lg:px-2 lg:py-2 rounded-md tool-btn lg:w-full" data-type="camera">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><circle cx="12" cy="12" r="4"/></svg>
-                <span class="text-xs lg:text-sm font-medium">C‚mera</span>
+                <span class="text-xs lg:text-sm font-medium">C√¢mera</span>
             </button>
             <button class="object-btn flex-shrink-0 flex flex-col lg:flex-row items-center gap-1 lg:gap-3 p-2 lg:px-2 lg:py-2 rounded-md tool-btn lg:w-full" data-type="motion_sensor">
                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.5 12a3.5 3.5 0 0 0-3.5-3.5V6a6 6 0 0 1 6 6h-2.5Z"/><path d="M8.5 12a3.5 3.5 0 0 1 3.5 3.5V18a6 6 0 0 0-6-6h2.5Z"/><path d="m12 15.5 3.5-3.5"/><path d="M8.5 12 12 8.5"/></svg>
@@ -207,7 +207,12 @@
                  <span class="text-xs lg:text-sm font-medium">Teclado</span>
             </button>
 
-             <div class="h-full lg:h-auto border-l lg:border-t border-gray-700 mx-2 my-0 lg:my-4 lg:mx-0 lg:w-full"></div>
+            <div class="h-full lg:h-auto border-l lg:border-t border-gray-700 mx-2 my-0 lg:my-4 lg:mx-0 lg:w-full"></div>
+            
+            <button id="newProjectBtn" class="flex-shrink-0 flex flex-col lg:flex-row items-center gap-1 lg:gap-3 p-2 lg:px-2 lg:py-2 rounded-md tool-btn hover:bg-green-500 lg:w-full">
+                <svg xmlns="http://www.w3.org/2000/svg" class="text-white" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
+                <span class="text-xs lg:text-sm font-medium">Novo Projeto</span>
+            </button>
 
              <button id="duplicateBtn" class="flex-shrink-0 flex flex-col lg:flex-row items-center gap-1 lg:gap-3 p-2 lg:px-2 lg:py-2 rounded-md tool-btn hover:bg-blue-500 lg:w-full">
                  <svg xmlns="http://www.w3.org/2000/svg" class="text-white" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
@@ -219,7 +224,7 @@
             </button>
         </aside>
 
-        <!-- ¡rea do Canvas -->
+        <!-- √Årea do Canvas -->
         <main id="canvas-container" class="flex-1 bg-gray-300 flex items-center justify-center p-4 overflow-auto relative">
             <canvas id="floorPlanCanvas" class="shadow-lg"></canvas>
             <div id="zoom-controls" class="absolute bottom-28 lg:bottom-4 right-4 flex flex-col items-center gap-2">
@@ -230,14 +235,14 @@
                 <button id="zoomOutBtn" class="bg-[var(--rs-dark-blue)] text-white w-10 h-10 rounded-full flex items-center justify-center shadow-lg hover:bg-opacity-90">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                 </button>
-                 <button id="fitToScreenBtn" class="bg-[var(--rs-dark-blue)] text-white w-10 h-10 rounded-full flex items-center justify-center shadow-lg hover:bg-opacity-90 mt-2" title="Ajustar ‡ Tela">
+                 <button id="fitToScreenBtn" class="bg-[var(--rs-dark-blue)] text-white w-10 h-10 rounded-full flex items-center justify-center shadow-lg hover:bg-opacity-90 mt-2" title="Ajustar √† Tela">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
                 </button>
             </div>
         </main>
     </div>
     
-    <!-- NotificaÁ„o -->
+    <!-- Notifica√ß√£o -->
     <div id="notification" class="absolute top-5 right-5 bg-red-500 text-white px-4 py-2 rounded-md shadow-lg transition-transform transform translate-x-[120%] duration-300 z-50"></div>
 
     <script>
@@ -248,7 +253,7 @@
             const canvasContainer = document.getElementById('canvas-container');
             const zoomDisplay = document.getElementById('zoom-display');
 
-            // --- ESTADO DA APLICA«√O ---
+            // --- ESTADO DA APLICA√á√ÉO ---
             let state = {
                 elements: [],
                 selectedElementId: null,
@@ -260,7 +265,7 @@
                 pan: { x: 0, y: 0, active: false, start: {x: 0, y: 0} },
                 zoom: 1,
                 orientation: 'portrait', // portrait, landscape
-                projectName: 'Projeto Sem TÌtulo',
+                projectName: 'Projeto Sem T√≠tulo',
                 alignmentGuides: [],
                 history: [],
                 historyIndex: -1
@@ -287,7 +292,7 @@
                 }
             });
 
-            // --- FUN«’ES DE RENDERIZA«√O ---
+            // --- FUN√á√ïES DE RENDERIZA√á√ÉO ---
             function drawScene(targetCtx, elementsToDraw) {
                  elementsToDraw.forEach(el => {
                     targetCtx.save();
@@ -377,7 +382,7 @@
                 // Desenhar Elementos
                 drawScene(ctx, state.elements);
 
-                // Desenhar SeleÁ„o
+                // Desenhar Sele√ß√£o
                 const selectedElement = getSelectedElement();
                 if (selectedElement) {
                     if (selectedElement.type === 'wall') {
@@ -420,14 +425,14 @@
                 ctx.lineWidth = 2 / state.zoom;
                 ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
 
-                // Handle de RotaÁ„o
+                // Handle de Rota√ß√£o
                 ctx.beginPath();
                 ctx.arc(boxX + boxWidth/2, boxY - 15/state.zoom, 5/state.zoom, 0, 2 * Math.PI);
                 ctx.fillStyle = 'white';
                 ctx.fill();
                 ctx.stroke();
 
-                // Handles de Redimensionamento (n„o para texto)
+                // Handles de Redimensionamento (n√£o para texto)
                 if (el.type !== 'text') {
                     const handleSize = 8 / state.zoom;
                     ctx.fillStyle = '#8bc53f';
@@ -456,14 +461,70 @@
                 ctx.restore();
             }
 
+            // --- FUN√á√ïES DE PERSIST√äNCIA (localStorage) ---
+            function saveProjectToLocalStorage() {
+                try {
+                    const projectData = {
+                        elements: state.elements,
+                        projectName: state.projectName,
+                        orientation: state.orientation,
+                        // N√£o salvamos o hist√≥rico, zoom ou pan para manter as coisas simples
+                    };
+                    localStorage.setItem('securityProjectData', JSON.stringify(projectData));
+                } catch (error) {
+                    console.error("Erro ao salvar o projeto:", error);
+                    showNotification("N√£o foi poss√≠vel salvar seu projeto. O armazenamento pode estar cheio.");
+                }
+            }
 
-            // --- L”GICA DA APLICA«√O ---
+            function loadProjectFromLocalStorage() {
+                try {
+                    const savedData = localStorage.getItem('securityProjectData');
+                    if (savedData) {
+                        const projectData = JSON.parse(savedData);
+                        state.elements = projectData.elements || [];
+                        state.projectName = projectData.projectName || 'Projeto Sem T√≠tulo';
+                        state.orientation = projectData.orientation || 'portrait';
+                        
+                        // Atualiza a UI com os dados carregados
+                        document.getElementById('projectName').value = state.projectName;
+                        
+                        return true; // Indica que um projeto foi carregado
+                    }
+                } catch (error) {
+                    console.error("Erro ao carregar o projeto:", error);
+                    // Pode ser √∫til limpar dados corrompidos
+                    localStorage.removeItem('securityProjectData');
+                }
+                return false; // Indica que nenhum projeto foi carregado
+            }
+            
+
+            // --- L√ìGICA DA APLICA√á√ÉO ---
             function initialize() {
-                setCanvasSize();
+                // Tenta carregar um projeto salvo.
+                const projectLoaded = loadProjectFromLocalStorage();
+                
+                setCanvasSize(); // Ajusta o tamanho inicial do canvas
                 addEventListeners();
                 updateActiveToolButton();
                 updateZoomDisplay();
-                saveState();
+
+                // Se um projeto foi carregado, precisamos ajustar a orienta√ß√£o da p√°gina
+                if (projectLoaded) {
+                    changeOrientation(state.orientation);
+                }
+                
+                // S√≥ salva um estado inicial no hist√≥rico se nenhum projeto foi carregado
+                if (!projectLoaded) {
+                    saveState(); 
+                } else {
+                    // Se carregou um projeto, o hist√≥rico precisa ser iniciado com ele
+                    state.history = [JSON.parse(JSON.stringify(state.elements))];
+                    state.historyIndex = 0;
+                    updateUndoRedoButtons();
+                }
+
                 draw();
             }
 
@@ -680,10 +741,14 @@
                 document.getElementById('duplicateBtn').addEventListener('click', duplicateSelected);
                 document.getElementById('undoBtn').addEventListener('click', undo);
                 document.getElementById('redoBtn').addEventListener('click', redo);
-                document.getElementById('projectName').addEventListener('change', e => state.projectName = e.target.value);
+                document.getElementById('projectName').addEventListener('change', e => {
+                    state.projectName = e.target.value;
+                    saveProjectToLocalStorage(); // Salva a mudan√ßa de nome
+                });
                 document.getElementById('portraitBtn').addEventListener('click', () => changeOrientation('portrait'));
                 document.getElementById('landscapeBtn').addEventListener('click', () => changeOrientation('landscape'));
                 document.getElementById('downloadPdfBtn').addEventListener('click', downloadPDF);
+                document.getElementById('newProjectBtn').addEventListener('click', clearProject);
 
                 // Zoom controls
                 document.getElementById('zoomInBtn').addEventListener('click', zoomIn);
@@ -696,7 +761,6 @@
                 
                 // Name control
                 document.getElementById('objectNameInput').addEventListener('input', (e) => updateSelectedElement({ name: e.target.value }));
-
 
                 // Shape controls
                 const strokeColorPicker = document.getElementById('strokeColorPicker');
@@ -996,7 +1060,7 @@
                 const selectedElement = getSelectedElement();
                 if (!selectedElement) return;
 
-                const moveAmount = e.shiftKey ? 10 : 2; // Mover mais r·pido com Shift
+                const moveAmount = e.shiftKey ? 10 : 2; // Mover mais r√°pido com Shift
                 let moved = false;
 
                 switch(e.key) {
@@ -1045,7 +1109,7 @@
                 }
             }
 
-            // --- A«’ES ---
+            // --- A√á√ïES ---
              function updateZoomDisplay() {
                 zoomDisplay.textContent = `${Math.round(state.zoom * 100)}%`;
             }
@@ -1089,6 +1153,18 @@
                     state.elements.push(newElement);
                     state.selectedElementId = newElement.id;
                     saveState();
+                    draw();
+                }
+            }
+
+            function clearProject() {
+                if (confirm("Voc√™ tem certeza que deseja limpar o canvas e iniciar um novo projeto? O projeto atual ser√° substitu√≠do.")) {
+                    state.elements = [];
+                    state.projectName = 'Projeto Sem T√≠tulo';
+                    state.selectedElementId = null;
+                    document.getElementById('projectName').value = state.projectName;
+                    toggleControls(null);
+                    saveState(); // Isso ir√° limpar o projeto e salvar esse estado vazio no localStorage
                     draw();
                 }
             }
@@ -1177,6 +1253,7 @@
                 document.getElementById('landscapeBtn').classList.toggle('active', !isPortrait);
                 document.getElementById('landscapeBtn').classList.toggle('bg-gray-700', isPortrait);
                 setCanvasSize();
+                saveProjectToLocalStorage();
             }
             
             function updateActiveToolButton(activeBtn) {
@@ -1221,6 +1298,9 @@
                 
                 state.historyIndex = state.history.length - 1;
                 updateUndoRedoButtons();
+                
+                // Salva o estado atual no armazenamento local do navegador
+                saveProjectToLocalStorage();
             }
 
             function undo() {
@@ -1230,6 +1310,7 @@
                     state.selectedElementId = null; // Deselect on undo
                     toggleControls(null);
                     updateUndoRedoButtons();
+                    saveProjectToLocalStorage(); // Salva o estado desfeito
                     draw();
                 }
             }
@@ -1241,6 +1322,7 @@
                     state.selectedElementId = null; // Deselect on redo
                     toggleControls(null);
                     updateUndoRedoButtons();
+                    saveProjectToLocalStorage(); // Salva o estado refeito
                     draw();
                 }
             }
@@ -1260,10 +1342,10 @@
                 setTimeout(() => {
                     try {
                         if (state.elements.length === 0) {
-                            showNotification("O projeto est· vazio."); return;
+                            showNotification("O projeto est√° vazio."); return;
                         }
                         if (typeof window.jspdf === 'undefined' || typeof window.jspdf.jsPDF === 'undefined') {
-                            showNotification("Erro: A biblioteca jsPDF n„o foi carregada."); return;
+                            showNotification("Erro: A biblioteca jsPDF n√£o foi carregada."); return;
                         }
                         const { jsPDF } = window.jspdf;
                         const objectTypesInUse = [...new Set(state.elements.filter(el => el.type === 'object').map(el => el.subType))];
@@ -1324,7 +1406,7 @@
                         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
                         state.elements.forEach(el => { getElementCorners(el).forEach(p => { minX = Math.min(minX, p.x); minY = Math.min(minY, p.y); maxX = Math.max(maxX, p.x); maxY = Math.max(maxY, p.y); }); });
 
-                        if (maxX === -Infinity) { showNotification("O projeto est· vazio."); return; }
+                        if (maxX === -Infinity) { showNotification("O projeto est√° vazio."); return; }
 
                         const pdf = new jsPDF({ orientation: state.orientation, unit: 'mm', format: 'a4' });
                         const pdfWidthMM = pdf.internal.pageSize.getWidth();
@@ -1376,11 +1458,11 @@
                         const contentHeight = (maxY - minY) + padding * 2;
                         
                         if (!isFinite(contentWidth) || contentWidth <= 0 || !isFinite(contentHeight) || contentHeight <= 0) {
-                            showNotification("Conte˙do inv·lido para exportaÁ„o. Tente novamente.");
+                            showNotification("Conte√∫do inv√°lido para exporta√ß√£o. Tente novamente.");
                             return;
                         }
 
-                        // --- L”GICA DE ESCALA SEGURA PARA EVITAR ERROS DE MEM”RIA ---
+                        // --- L√ìGICA DE ESCALA SEGURA PARA EVITAR ERROS DE MEM√ìRIA ---
                         const highResScale = 4;
                         const MAX_PIXELS = 16777216; // Limite seguro REDUZIDO (16 megapixels, e.g., 4096x4096)
                         let tempCanvasWidth = contentWidth * highResScale;
@@ -1392,9 +1474,9 @@
                             tempCanvasWidth = tempCanvasHeight * ratio;
                         }
                         
-                        // VerificaÁ„o final antes de criar o canvas
+                        // Verifica√ß√£o final antes de criar o canvas
                         if (!isFinite(tempCanvasWidth) || tempCanvasWidth <= 0 || !isFinite(tempCanvasHeight) || tempCanvasHeight <= 0) {
-                            showNotification("Erro ao calcular dimensıes do projeto para o PDF.");
+                            showNotification("Erro ao calcular dimens√µes do projeto para o PDF.");
                             return;
                         }
 
@@ -1413,22 +1495,22 @@
                         
                         const imgData = tempCanvas.toDataURL('image/jpeg', 0.98);
 
-                        // --- CORRE«√O DA PROPOR«√O ---
+                        // --- CORRE√á√ÉO DA PROPOR√á√ÉO ---
                         const contentRatio = contentWidth / contentHeight;
                         const pdfDrawingRatio = drawingWidthMM / drawingHeightMM;
                         let finalImageWidthMM, finalImageHeightMM;
 
                         if (contentRatio > pdfDrawingRatio) {
-                            // O conte˙do È mais largo que a ·rea do PDF, ent„o ajusta pela largura
+                            // O conte√∫do √© mais largo que a √°rea do PDF, ent√£o ajusta pela largura
                             finalImageWidthMM = drawingWidthMM;
                             finalImageHeightMM = drawingWidthMM / contentRatio;
                         } else {
-                            // O conte˙do È mais alto ou proporcional, ent„o ajusta pela altura
+                            // O conte√∫do √© mais alto ou proporcional, ent√£o ajusta pela altura
                             finalImageHeightMM = drawingHeightMM;
                             finalImageWidthMM = drawingHeightMM * contentRatio;
                         }
                         
-                        // Centraliza a imagem na ·rea de desenho
+                        // Centraliza a imagem na √°rea de desenho
                         const offsetX_MM = marginMM + (drawingWidthMM - finalImageWidthMM) / 2;
                         const offsetY_MM = drawingStartY_MM + (drawingHeightMM - finalImageHeightMM) / 2;
 
@@ -1451,4 +1533,3 @@
     </script>
 </body>
 </html>
-
