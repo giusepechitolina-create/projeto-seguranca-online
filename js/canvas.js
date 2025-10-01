@@ -19,48 +19,29 @@ function getWallPolygon(el) {
 }
 
 export function getInsertableHandles(el, wall) {
-    if (!wall) return {};
     const halfWidth = el.width / 2;
-    const flipY = el.flip || 1; 
-    const swingX = el.swing || 1;
-
     let handles = {
         'resize-start': { x: -halfWidth, y: 0, cursor: 'ew-resize' },
         'resize-end': { x: halfWidth, y: 0, cursor: 'ew-resize' },
-        'flip': { x: 0, y: (wall.thickness / 2 + 10 / state.zoom) * flipY, cursor: 'pointer' },
     };
-    if (el.type === 'door') {
-        handles['swing'] = { x: (halfWidth / 2) * swingX, y: (wall.thickness / 2 + (halfWidth / 2) * Math.abs(swingX)) * flipY, cursor: 'pointer' };
-    }
     return handles;
 }
 
-function drawDoorSymbol(ctx, door, wall) {
-    const flipY = door.flip || 1;
-    const swingX = door.swing || 1;
+function drawDoorSymbol(ctx, door) {
     ctx.strokeStyle = '#666';
     ctx.lineWidth = 1.5;
     ctx.lineCap = 'round';
-    ctx.save();
-    ctx.lineWidth = 3;
+    
+    // Folha da porta
     ctx.beginPath();
-    ctx.moveTo(0, -wall.thickness / 2);
-    ctx.lineTo(0, wall.thickness / 2);
+    ctx.moveTo(0, 0);
+    ctx.lineTo(door.width, 0);
     ctx.stroke();
-    ctx.restore();
-    const pivotY = (wall.thickness / 2) * flipY;
-    const pivotX = 0;
-    ctx.beginPath();
-    ctx.moveTo(pivotX, pivotY);
-    ctx.lineTo(pivotX + (door.width * swingX), pivotY);
-    ctx.stroke();
+
+    // Arco
     ctx.beginPath();
     ctx.setLineDash([3, 3]);
-    if (swingX > 0) {
-        ctx.arc(pivotX, pivotY, door.width, 0, -Math.PI / 2 * flipY, flipY < 0);
-    } else {
-        ctx.arc(pivotX, pivotY, door.width, Math.PI, Math.PI + (Math.PI / 2 * flipY), flipY < 0);
-    }
+    ctx.arc(0, 0, door.width, 0, Math.PI / 2);
     ctx.stroke();
     ctx.setLineDash([]);
 }
@@ -70,8 +51,10 @@ function drawWindowSymbol(ctx, win, wall) {
     ctx.fillStyle = 'rgba(173, 216, 230, 0.7)';
     ctx.strokeStyle = '#888';
     ctx.lineWidth = 1;
+    
     ctx.fillRect(-halfWidth, -wall.thickness / 2, win.width, wall.thickness);
     ctx.strokeRect(-halfWidth, -wall.thickness / 2, win.width, wall.thickness);
+    
     ctx.beginPath();
     ctx.moveTo(-halfWidth, 0);
     ctx.lineTo(halfWidth, 0);
@@ -81,21 +64,35 @@ function drawWindowSymbol(ctx, win, wall) {
 function drawInsertableSelection(el, wall) {
     const { ctx } = dom;
     ctx.save();
+    
     const wallDx = wall.x2 - wall.x1;
     const wallDy = wall.y2 - wall.y1;
-    const cx = wall.x1 + wallDx * el.position;
-    const cy = wall.y1 + wallDy * el.position;
+    let cx = wall.x1 + wallDx * el.position;
+    let cy = wall.y1 + wallDy * el.position;
+    
+    if(el.wallId === 'pending') {
+        cx = el.x;
+        cy = el.y;
+    }
+
     ctx.translate(cx, cy);
     ctx.rotate(Math.atan2(wallDy, wallDx));
+    if (el.type === 'door') {
+        ctx.rotate(el.rotation * Math.PI / 180);
+    }
+    
     const handles = getInsertableHandles(el, wall);
     const handleSize = 8 / state.zoom;
+    
     ctx.strokeStyle = '#8bc53f';
     ctx.lineWidth = 2 / state.zoom;
     ctx.setLineDash([4 / state.zoom, 2 / state.zoom]);
     ctx.strokeRect(-el.width / 2, -wall.thickness / 2, el.width, wall.thickness);
     ctx.setLineDash([]);
+    
+    // Alças de redimensionamento
     Object.values(handles).forEach(h => {
-        ctx.fillStyle = h.cursor === 'pointer' ? '#f59e0b' : '#8bc53f';
+        ctx.fillStyle = '#8bc53f';
         ctx.strokeStyle = 'white';
         ctx.lineWidth = 1.5 / state.zoom;
         ctx.beginPath();
@@ -103,6 +100,18 @@ function drawInsertableSelection(el, wall) {
         ctx.fill();
         ctx.stroke();
     });
+
+    // Alça de rotação (apenas para portas)
+    if (el.type === 'door') {
+        ctx.beginPath();
+        ctx.arc(0, -wall.thickness / 2 - 20 / state.zoom, 5 / state.zoom, 0, 2 * Math.PI);
+        ctx.moveTo(0, -wall.thickness / 2 - 20 / state.zoom);
+        ctx.lineTo(0, -wall.thickness / 2);
+        ctx.fillStyle = 'white';
+        ctx.fill();
+        ctx.stroke();
+    }
+
     ctx.restore();
 }
 
@@ -113,7 +122,7 @@ function drawCoverageArea(ctx, el) {
     const startAngle = -angle / 2 * (Math.PI / 180);
     const endAngle = angle / 2 * (Math.PI / 180);
 
-    ctx.fillStyle = 'rgba(239, 68, 68, 0.2)';
+    ctx.fillStyle = 'rgba(239, 68, 68, 0.2)'; // Vermelho fraco
     ctx.strokeStyle = 'rgba(239, 68, 68, 0.4)';
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -252,8 +261,9 @@ export function drawScene(targetCtx, elementsToDraw) {
     const others = elementsToDraw.filter(el => !['shape', 'wall', 'door', 'window'].includes(el.type));
 
     rooms.forEach(room => renderElement(targetCtx, room));
+
     walls.forEach(wall => {
-        const wallInsertables = insertables.filter(i => i.wallId === wall.id).sort((a, b) => a.position - b.position);
+        const wallInsertables = insertables.filter(i => i.wallId === wall.id && i.wallId !== 'pending').sort((a, b) => a.position - b.position);
         const wallLength = Math.sqrt((wall.x2 - wall.x1)**2 + (wall.y2 - wall.y1)**2);
         if (wallLength === 0) { renderElement(targetCtx, wall); return; }
         let lastPos = 0;
@@ -271,21 +281,39 @@ export function drawScene(targetCtx, elementsToDraw) {
             renderElement(targetCtx, segment);
         }
     });
+    
     insertables.forEach(insertable => {
-        const parentWall = walls.find(w => w.id === insertable.wallId);
-        if (parentWall) {
-            const wallDx = parentWall.x2 - parentWall.x1;
-            const wallDy = parentWall.y2 - parentWall.y1;
-            const cx = parentWall.x1 + wallDx * insertable.position;
-            const cy = parentWall.y1 + wallDy * insertable.position;
-            targetCtx.save();
-            targetCtx.translate(cx, cy);
-            targetCtx.rotate(Math.atan2(wallDy, wallDx));
-            if (insertable.type === 'door') drawDoorSymbol(targetCtx, insertable, parentWall);
-            if (insertable.type === 'window') drawWindowSymbol(targetCtx, insertable, parentWall);
-            targetCtx.restore();
+        let cx, cy, angle, wallForThickness;
+        if (insertable.wallId === 'pending') {
+            cx = insertable.x;
+            cy = insertable.y;
+            angle = 0;
+            wallForThickness = { thickness: 10 }; // default thickness for floating
+        } else {
+            const parentWall = walls.find(w => w.id === insertable.wallId);
+            if (parentWall) {
+                const wallDx = parentWall.x2 - parentWall.x1;
+                const wallDy = parentWall.y2 - parentWall.y1;
+                cx = parentWall.x1 + wallDx * insertable.position;
+                cy = parentWall.y1 + wallDy * insertable.position;
+                angle = Math.atan2(wallDy, wallDx);
+                wallForThickness = parentWall;
+            }
         }
+        
+        targetCtx.save();
+        targetCtx.translate(cx, cy);
+        targetCtx.rotate(angle);
+        if (insertable.type === 'door') {
+            targetCtx.rotate(insertable.rotation * Math.PI / 180);
+            drawDoorSymbol(targetCtx, insertable);
+        }
+        if (insertable.type === 'window') {
+            drawWindowSymbol(targetCtx, insertable, wallForThickness);
+        }
+        targetCtx.restore();
     });
+
     others.forEach(obj => renderElement(targetCtx, obj));
 }
 
@@ -297,7 +325,12 @@ function drawSelection() {
         if (el.type === 'wall') {
             drawWallSelection(el);
         } else if (['door', 'window'].includes(el.type)) {
-            const wall = state.elements.find(w => w.id === el.wallId);
+            let wall;
+            if (el.wallId === 'pending') { // Create a fake horizontal wall for drawing handles
+                wall = { x1: el.x - 100, y1: el.y, x2: el.x + 100, y2: el.y, thickness: 10 };
+            } else {
+                wall = state.elements.find(w => w.id === el.wallId);
+            }
             if (wall) drawInsertableSelection(el, wall);
         } else {
             drawSelectionBox(el);
@@ -312,10 +345,18 @@ function drawSelection() {
     } else {
         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
         selectedElements.forEach(el => {
-            const width = el.width || (el.type === 'wall' ? Math.abs(el.x2 - el.x1) : 0);
-            const height = el.height || (el.type === 'wall' ? Math.abs(el.y2 - el.y1) : 0);
-            const elX = el.type === 'wall' ? Math.min(el.x1, el.x2) : el.x;
-            const elY = el.type === 'wall' ? Math.min(el.y1, el.y2) : el.y;
+            let width=0, height=0, elX=0, elY=0;
+            if(el.type === 'wall'){
+                width = Math.abs(el.x2 - el.x1);
+                height = Math.abs(el.y2 - el.y1);
+                elX = Math.min(el.x1, el.x2);
+                elY = Math.min(el.y1, el.y2);
+            } else if(['door','window'].includes(el.type)){
+                 // Cannot properly calculate bounding box for attached items in multi-select, so we skip for now
+                 return;
+            } else {
+                 width = el.width; height = el.height; elX = el.x; elY = el.y;
+            }
             minX = Math.min(minX, elX); minY = Math.min(minY, elY);
             maxX = Math.max(maxX, elX + width); maxY = Math.max(maxY, elY + height);
         });
@@ -347,7 +388,7 @@ function drawSelectionBox(el) {
     ctx.lineWidth = 2 / state.zoom;
     ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
     
-    if (el.type !== 'text') { // Rotation handle only for non-text
+    if (el.type !== 'text') {
         ctx.beginPath();
         ctx.arc(0, -boxHeight / 2 - 20 / state.zoom, 5 / state.zoom, 0, 2 * Math.PI);
         ctx.moveTo(0, -boxHeight / 2 - 20 / state.zoom);

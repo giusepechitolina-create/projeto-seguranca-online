@@ -2,7 +2,7 @@
 import { state, dom } from './state.js';
 import { draw, getResizeHandles, getInsertableHandles } from './canvas.js';
 import { saveState, setCanvasSize } from './main.js';
-import { editText, deleteSelected, duplicateSelected } from './actions.js';
+import { editText, deleteSelected, duplicateSelected, placeDuplicatedInsertable } from './actions.js';
 import { toggleControls } from './ui.js';
 import { TOOL_CONFIG } from './config.js';
 
@@ -34,7 +34,7 @@ function findSnapPoints(pos, excludeId) {
     return { snappedPos, snapLines };
 }
 
-function getEventPos(e) {
+export function getEventPos(e) {
     const rect = dom.canvas.getBoundingClientRect();
     const clientX = e.touches?.[0]?.clientX ?? e.clientX;
     const clientY = e.touches?.[0]?.clientY ?? e.clientY;
@@ -138,18 +138,27 @@ function getHandleAtPos(el, x, y) {
     if (visionHandle) return visionHandle;
 
     if (['door', 'window'].includes(el.type)) {
-        const wall = state.elements.find(w => w.id === el.wallId);
+        let wall;
+        if (el.wallId === 'pending') {
+            wall = { x1: el.x - 100, y1: el.y, x2: el.x + 100, y2: el.y, thickness: 10 };
+        } else {
+            wall = state.elements.find(w => w.id === el.wallId);
+        }
         if (!wall) return null;
+        
         const wallDx = wall.x2 - wall.x1;
         const wallDy = wall.y2 - wall.y1;
-        const cx = wall.x1 + wallDx * el.position;
-        const cy = wall.y1 + wallDy * el.position;
-        const angle = -Math.atan2(wallDy, wallDx);
+        const cx = (el.wallId === 'pending') ? el.x : wall.x1 + wallDx * el.position;
+        const cy = (el.wallId === 'pending') ? el.y : wall.y1 + wallDy * el.position;
+
+        const wallAngle = -Math.atan2(wallDy, wallDx);
+        const doorAngle = el.type === 'door' ? -el.rotation * Math.PI/180 : 0;
+        const totalAngle = wallAngle + doorAngle;
         
         const dx = x - cx;
         const dy = y - cy;
-        const rotatedX = dx * Math.cos(angle) - dy * Math.sin(angle);
-        const rotatedY = dx * Math.sin(angle) + dy * Math.cos(angle);
+        const rotatedX = dx * Math.cos(totalAngle) - dy * Math.sin(totalAngle);
+        const rotatedY = dx * Math.sin(totalAngle) + dy * Math.cos(totalAngle);
         
         const handles = getInsertableHandles(el, wall);
         for (const [key, handle] of Object.entries(handles)) {
@@ -157,6 +166,11 @@ function getHandleAtPos(el, x, y) {
                 return key;
             }
         }
+        if(el.type === 'door'){
+            const rotHandleY = -wall.thickness / 2 - 20/state.zoom;
+            if (Math.sqrt(rotatedX**2 + (rotatedY - rotHandleY)**2) < handleHitboxSize) return 'rotate';
+        }
+
     } else if (el.type === 'wall') {
         if (Math.sqrt((x - el.x1)**2 + (y - el.y1)**2) < handleHitboxSize) return 'start';
         if (Math.sqrt((x - el.x2)**2 + (y - el.y2)**2) < handleHitboxSize) return 'end';
@@ -178,7 +192,7 @@ function getHandleAtPos(el, x, y) {
     return null;
 }
 
-function distToSegment(p, v, w) {
+export function distToSegment(p, v, w) {
     const l2 = (v.x - w.x)**2 + (v.y - w.y)**2;
     if (l2 === 0) return Math.sqrt((p.x - v.x)**2 + (p.y - v.y)**2);
     let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
@@ -204,18 +218,14 @@ function createElement(type, subType, pos) {
 }
 
 function handleSelectToolMouseDown(e, mousePos) {
+    if (state.toolSubType === 'place_insertable') {
+        placeDuplicatedInsertable(mousePos);
+        return;
+    }
     const singleSelectedEl = state.selectedElementIds.length === 1 ? state.elements.find(el => el.id === state.selectedElementIds[0]) : null;
     const handle = singleSelectedEl ? getHandleAtPos(singleSelectedEl, mousePos.x, mousePos.y) : null;
 
     if (handle) {
-        if (handle === 'flip' && singleSelectedEl) {
-            singleSelectedEl.flip = (singleSelectedEl.flip || 1) * -1;
-            saveState(); draw(); return;
-        }
-        if (handle === 'swing' && singleSelectedEl) {
-            singleSelectedEl.swing = (singleSelectedEl.swing || 1) * -1;
-            saveState(); draw(); return;
-        }
         state.dragAction = { type: handle, elements: [singleSelectedEl], startPos: mousePos, originalElements: [JSON.parse(JSON.stringify(singleSelectedEl))] };
         return;
     }
@@ -265,7 +275,7 @@ function handleInsertableMouseDown(type, mousePos) {
             id: Date.now(), type: type, wallId: closestWall.id,
             position: Math.max(0, Math.min(1, t)),
             width: type === 'door' ? 60 : 80,
-            flip: 1, swing: 1,
+            rotation: 0,
         };
         state.elements.push(newInsertable);
         state.activeTool = 'select';
@@ -306,10 +316,21 @@ function onMouseMove(e) {
         state.pan.start = { x: e.clientX, y: e.clientY };
         draw(); return;
     }
+
+    const mousePos = getEventPos(e);
+
+    if (state.toolSubType === 'place_insertable' && state.selectedElementIds.length > 0) {
+        const el = state.elements.find(el => el.id === state.selectedElementIds[0]);
+        if(el) {
+            el.x = mousePos.x;
+            el.y = mousePos.y;
+            draw();
+        }
+        return;
+    }
     
     if (!state.isDrawing) return;
     
-    const mousePos = getEventPos(e);
     let currentPos = mousePos;
     state.snapLines = [];
 
@@ -381,13 +402,13 @@ function onMouseMove(e) {
         const centerY = el.y + el.height/2;
         const dx = mousePos.x - centerX;
         const dy = mousePos.y - centerY;
-        const mainAngle = -el.rotation * Math.PI / 180; // Inverse rotation
+        const mainAngle = -el.rotation * Math.PI / 180;
         const rotatedX = dx * Math.cos(mainAngle) - dy * Math.sin(mainAngle);
         const rotatedY = dx * Math.sin(mainAngle) + dy * Math.cos(mainAngle);
 
         if (state.dragAction.type === 'vision-range') {
-            el.vision.range = Math.max(20, rotatedX);
-        } else { // vision-angle
+            el.vision.range = Math.max(20, Math.sqrt(rotatedX**2 + rotatedY**2));
+        } else {
             const angleInRad = Math.atan2(rotatedY, rotatedX);
             el.vision.angle = Math.min(359, Math.max(10, Math.abs(angleInRad * 180 / Math.PI) * 2));
         }
@@ -431,11 +452,22 @@ function onMouseMove(e) {
     } else if (state.dragAction.type === 'rotate') {
         const el = state.dragAction.elements[0];
         const orig = state.dragAction.originalElements[0];
-        let centerX = orig.x + orig.width / 2;
-        let centerY = orig.y + orig.height / 2;
-        const startAngle = Math.atan2(state.dragAction.startPos.y - centerY, state.dragAction.startPos.x - centerX);
-        const currentAngle = Math.atan2(mousePos.y - centerY, mousePos.x - centerX);
-        let rotation = orig.rotation + (currentAngle - startAngle) * 180 / Math.PI;
+        let centerX, centerY, baseAngle = 0;
+
+        if (el.type === 'door' && el.wallId !== 'pending') {
+            const wall = state.elements.find(w => w.id === el.wallId);
+            centerX = wall.x1 + (wall.x2 - wall.x1) * el.position;
+            centerY = wall.y1 + (wall.y2 - wall.y1) * el.position;
+            baseAngle = Math.atan2(wall.y2 - wall.y1, wall.x2 - wall.x1);
+        } else {
+            centerX = orig.x + orig.width / 2;
+            centerY = orig.y + orig.height / 2;
+        }
+
+        const startDragAngle = Math.atan2(state.dragAction.startPos.y - centerY, state.dragAction.startPos.x - centerX);
+        const currentMouseAngle = Math.atan2(mousePos.y - centerY, mousePos.x - centerX);
+        let rotation = (orig.rotation || 0) + (currentMouseAngle - startDragAngle) * 180 / Math.PI;
+        
         if (e.shiftKey) {
             rotation = Math.round(rotation / 45) * 45;
         }
@@ -446,7 +478,7 @@ function onMouseMove(e) {
 }
 
 function onMouseUp() {
-    if (state.isDrawing) {
+    if (state.isDrawing && state.toolSubType !== 'place_insertable') {
         saveState();
     }
     
@@ -454,7 +486,10 @@ function onMouseUp() {
     state.pan.active = false;
     state.dragAction = { type: null, elements: [], handle: null, startPos: null, originalElements: [] };
     state.snapLines = [];
-    dom.canvas.style.cursor = 'default';
+    
+    if (state.toolSubType !== 'place_insertable') {
+        dom.canvas.style.cursor = 'default';
+    }
     
     if (state.marquee) {
         const x1 = Math.min(state.marquee.x1, state.marquee.x2);
@@ -462,14 +497,27 @@ function onMouseUp() {
         const x2 = Math.max(state.marquee.x1, state.marquee.x2);
         const y2 = Math.max(state.marquee.y1, state.marquee.y2);
         
-        state.selectedElementIds = state.elements
-            .filter(el => {
-                if (['wall', 'door', 'window'].includes(el.type)) return false;
-                const cx = el.x + (el.width || 0) / 2;
-                const cy = el.y + (el.height || 0) / 2;
-                return cx > x1 && cx < x2 && cy > y1 && cy < y2;
-            })
-            .map(el => el.id);
+        state.selectedElementIds = state.elements.map(el => {
+            let cx, cy;
+            if (el.type === 'wall') {
+                cx = (el.x1 + el.x2) / 2;
+                cy = (el.y1 + el.y2) / 2;
+            } else if (['door', 'window'].includes(el.type)) {
+                const wall = state.elements.find(w => w.id === el.wallId);
+                if (wall) {
+                    cx = wall.x1 + (wall.x2 - wall.x1) * el.position;
+                    cy = wall.y1 + (wall.y2 - wall.y1) * el.position;
+                }
+            } else {
+                cx = el.x + (el.width || 0) / 2;
+                cy = el.y + (el.height || 0) / 2;
+            }
+            if (cx > x1 && cx < x2 && cy > y1 && cy < y2) {
+                return el.id;
+            }
+            return null;
+        }).filter(id => id !== null);
+
         state.marquee = null;
     }
     
@@ -486,7 +534,13 @@ function onDblClick(e) {
 
 function onKeyDown(e) {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
     if (e.ctrlKey) {
+        if (e.key.toLowerCase() === 'a') {
+            e.preventDefault();
+            state.selectedElementIds = state.elements.map(el => el.id);
+            draw();
+        }
         if (e.key.toLowerCase() === 'z') { e.preventDefault(); window.undo(); }
         if (e.key.toLowerCase() === 'y') { e.preventDefault(); window.redo(); }
         if (e.key.toLowerCase() === 'd' && state.activeTool !== 'door') { e.preventDefault(); duplicateSelected(); }
