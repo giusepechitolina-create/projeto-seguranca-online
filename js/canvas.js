@@ -1,6 +1,8 @@
 // js/canvas.js
 import { state, images, dom } from './state.js';
 
+// --- HELPERS DE DESENHO E LÓGICA ---
+
 function getWallPolygon(el) {
     const { x1, y1, x2, y2, thickness } = el;
     const halfThick = thickness / 2;
@@ -18,49 +20,62 @@ function getWallPolygon(el) {
     ];
 }
 
+export function getInsertableHandles(el, wall) {
+    if (!wall) return {};
+    const halfWidth = el.width / 2;
+    const flipY = el.flip || 1; 
+    const swingX = el.swing || 1;
+
+    let handles = {
+        'resize-start': { x: -halfWidth, y: 0, cursor: 'ew-resize' },
+        'resize-end': { x: halfWidth, y: 0, cursor: 'ew-resize' },
+        'flip': { x: 0, y: (wall.thickness / 2 + 10 / state.zoom) * flipY, cursor: 'pointer' },
+    };
+    if (el.type === 'door') {
+        handles['swing'] = { x: (halfWidth / 2) * swingX, y: (wall.thickness / 2 + (halfWidth / 2) * Math.abs(swingX)) * flipY, cursor: 'pointer' };
+    }
+    return handles;
+}
+
+
+// --- RENDERERS DE SÍMBOLOS E SELEÇÃO ---
+
 function drawDoorSymbol(ctx, door, wall) {
-    const wallLength = Math.sqrt((wall.x2 - wall.x1)**2 + (wall.y2 - wall.y1)**2);
-    if (wallLength === 0) return;
-    const cx = wall.x1 + (wall.x2 - wall.x1) * door.position;
-    const cy = wall.y1 + (wall.y2 - wall.y1) * door.position;
-    
-    ctx.save();
-    ctx.translate(cx, cy);
-    ctx.rotate(Math.atan2(wall.y2 - wall.y1, wall.x2 - wall.x1));
-    
+    const flipY = door.flip || 1;
+    const swingX = door.swing || 1;
+
     ctx.strokeStyle = '#666';
     ctx.lineWidth = 1.5;
     ctx.lineCap = 'round';
     
+    ctx.save();
+    ctx.lineWidth = 3;
     ctx.beginPath();
     ctx.moveTo(0, -wall.thickness / 2);
     ctx.lineTo(0, wall.thickness / 2);
     ctx.stroke();
+    ctx.restore();
+
+    const pivotY = (wall.thickness / 2) * flipY;
+    const pivotX = 0;
 
     ctx.beginPath();
-    ctx.moveTo(0, wall.thickness / 2);
-    ctx.lineTo(door.width, wall.thickness / 2);
+    ctx.moveTo(pivotX, pivotY);
+    ctx.lineTo(pivotX + (door.width * swingX), pivotY);
     ctx.stroke();
 
     ctx.beginPath();
-    ctx.setLineDash([2, 2]);
-    ctx.arc(0, wall.thickness / 2, door.width, 0, -Math.PI / 2, true);
+    ctx.setLineDash([3, 3]);
+    if (swingX > 0) {
+        ctx.arc(pivotX, pivotY, door.width, 0, -Math.PI / 2 * flipY, flipY < 0);
+    } else {
+        ctx.arc(pivotX, pivotY, door.width, Math.PI, Math.PI + (Math.PI / 2 * flipY), flipY < 0);
+    }
     ctx.stroke();
     ctx.setLineDash([]);
-
-    ctx.restore();
 }
 
 function drawWindowSymbol(ctx, win, wall) {
-    const wallLength = Math.sqrt((wall.x2 - wall.x1)**2 + (wall.y2 - wall.y1)**2);
-    if (wallLength === 0) return;
-    const cx = wall.x1 + (wall.x2 - wall.x1) * win.position;
-    const cy = wall.y1 + (wall.y2 - wall.y1) * win.position;
-    
-    ctx.save();
-    ctx.translate(cx, cy);
-    ctx.rotate(Math.atan2(wall.y2 - wall.y1, wall.x2 - wall.x1));
-    
     const halfWidth = win.width / 2;
     ctx.fillStyle = 'rgba(173, 216, 230, 0.7)';
     ctx.strokeStyle = '#888';
@@ -73,9 +88,43 @@ function drawWindowSymbol(ctx, win, wall) {
     ctx.moveTo(-halfWidth, 0);
     ctx.lineTo(halfWidth, 0);
     ctx.stroke();
+}
+
+function drawInsertableSelection(el, wall) {
+    const { ctx } = dom;
+    ctx.save();
     
+    const wallDx = wall.x2 - wall.x1;
+    const wallDy = wall.y2 - wall.y1;
+    const cx = wall.x1 + wallDx * el.position;
+    const cy = wall.y1 + wallDy * el.position;
+
+    ctx.translate(cx, cy);
+    ctx.rotate(Math.atan2(wallDy, wallDx));
+
+    const handles = getInsertableHandles(el, wall);
+    const handleSize = 8 / state.zoom;
+    
+    ctx.strokeStyle = '#8bc53f';
+    ctx.lineWidth = 2 / state.zoom;
+    ctx.setLineDash([4 / state.zoom, 2 / state.zoom]);
+    ctx.strokeRect(-el.width / 2, -wall.thickness / 2, el.width, wall.thickness);
+    ctx.setLineDash([]);
+    
+    Object.values(handles).forEach(h => {
+        ctx.fillStyle = h.cursor === 'pointer' ? '#f59e0b' : '#8bc53f';
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 1.5 / state.zoom;
+        ctx.beginPath();
+        ctx.arc(h.x, h.y, handleSize / 2, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.stroke();
+    });
+
     ctx.restore();
 }
+
+// --- RENDERERS PRINCIPAIS DE ELEMENTOS ---
 
 const elementRenderers = {
     wall: (ctx, el) => {
@@ -105,7 +154,7 @@ const elementRenderers = {
     shape: (ctx, el) => {
         ctx.strokeStyle = el.strokeColor;
         ctx.fillStyle = el.fillColor;
-        ctx.lineWidth = 0; // Borda invisível para áreas
+        ctx.lineWidth = 0;
         ctx.beginPath();
         if (el.subType === 'rectangle') ctx.rect(-el.width / 2, -el.height / 2, el.width, el.height);
         if (el.fillColor && el.fillColor !== 'transparent') ctx.fill();
@@ -138,6 +187,8 @@ function renderElement(ctx, el) {
     ctx.restore();
 }
 
+// --- FUNÇÕES DE DESENHO PRINCIPAIS E DE SELEÇÃO ---
+
 export function draw() {
     const { ctx, canvas } = dom;
     ctx.save();
@@ -162,31 +213,20 @@ export function drawScene(targetCtx, elementsToDraw) {
     walls.forEach(wall => {
         const wallInsertables = insertables.filter(i => i.wallId === wall.id).sort((a, b) => a.position - b.position);
         const wallLength = Math.sqrt((wall.x2 - wall.x1)**2 + (wall.y2 - wall.y1)**2);
-        if (wallLength === 0) {
-            renderElement(targetCtx, wall);
-            return;
-        }
+        if (wallLength === 0) { renderElement(targetCtx, wall); return; }
 
         let lastPos = 0;
         wallInsertables.forEach(insertable => {
             const halfWidthNormalized = (insertable.width / 2) / wallLength;
             const startPos = insertable.position - halfWidthNormalized;
             if (startPos > lastPos) {
-                const segment = { ...wall,
-                    x1: wall.x1 + (wall.x2 - wall.x1) * lastPos,
-                    y1: wall.y1 + (wall.y2 - wall.y1) * lastPos,
-                    x2: wall.x1 + (wall.x2 - wall.x1) * startPos,
-                    y2: wall.y1 + (wall.y2 - wall.y1) * startPos,
-                };
+                const segment = { ...wall, x1: wall.x1 + (wall.x2 - wall.x1) * lastPos, y1: wall.y1 + (wall.y2 - wall.y1) * lastPos, x2: wall.x1 + (wall.x2 - wall.x1) * startPos, y2: wall.y1 + (wall.y2 - wall.y1) * startPos };
                 renderElement(targetCtx, segment);
             }
             lastPos = insertable.position + halfWidthNormalized;
         });
         if (lastPos < 1) {
-            const segment = { ...wall,
-                x1: wall.x1 + (wall.x2 - wall.x1) * lastPos,
-                y1: wall.y1 + (wall.y2 - wall.y1) * lastPos
-            };
+            const segment = { ...wall, x1: wall.x1 + (wall.x2 - wall.x1) * lastPos, y1: wall.y1 + (wall.y2 - wall.y1) * lastPos };
             renderElement(targetCtx, segment);
         }
     });
@@ -194,8 +234,16 @@ export function drawScene(targetCtx, elementsToDraw) {
     insertables.forEach(insertable => {
         const parentWall = walls.find(w => w.id === insertable.wallId);
         if (parentWall) {
+            const wallDx = parentWall.x2 - parentWall.x1;
+            const wallDy = parentWall.y2 - parentWall.y1;
+            const cx = parentWall.x1 + wallDx * insertable.position;
+            const cy = parentWall.y1 + wallDy * insertable.position;
+            targetCtx.save();
+            targetCtx.translate(cx, cy);
+            targetCtx.rotate(Math.atan2(wallDy, wallDx));
             if (insertable.type === 'door') drawDoorSymbol(targetCtx, insertable, parentWall);
             if (insertable.type === 'window') drawWindowSymbol(targetCtx, insertable, parentWall);
+            targetCtx.restore();
         }
     });
 
@@ -210,7 +258,10 @@ function drawSelection() {
         const el = selectedElements[0];
         if (el.type === 'wall') {
             drawWallSelection(el);
-        } else if(!['door', 'window'].includes(el.type)) {
+        } else if (['door', 'window'].includes(el.type)) {
+            const wall = state.elements.find(w => w.id === el.wallId);
+            if (wall) drawInsertableSelection(el, wall);
+        } else {
             drawSelectionBox(el);
         }
     } else {
@@ -231,6 +282,7 @@ function drawSelection() {
         dom.ctx.restore();
     }
 }
+
 function drawSelectionBox(el) {
     const { ctx } = dom;
     ctx.save();
@@ -266,6 +318,7 @@ function drawSelectionBox(el) {
     }
     ctx.restore();
 }
+
 function drawWallSelection(el) {
     const { ctx } = dom;
     const poly = getWallPolygon(el);
@@ -284,6 +337,7 @@ function drawWallSelection(el) {
     ctx.fillRect(el.x2 - handleSize / 2, el.y2 - handleSize / 2, handleSize, handleSize);
     ctx.restore();
 }
+
 export function getResizeHandles(el) {
     const hw = el.width / 2; const hh = el.height / 2;
     return {
@@ -293,6 +347,7 @@ export function getResizeHandles(el) {
         'bottom-right': { x: hw, y: hh, cursor: 'nwse-resize' }
     };
 }
+
 function drawMarquee() {
     const { ctx } = dom;
     const width = state.marquee.x2 - state.marquee.x1;
