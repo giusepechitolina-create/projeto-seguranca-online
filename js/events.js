@@ -114,19 +114,17 @@ function getVisionHandleAtPos(el, x, y) {
     const rotatedX = dx * Math.cos(mainAngle) - dy * Math.sin(mainAngle);
     const rotatedY = dx * Math.sin(mainAngle) + dy * Math.cos(mainAngle);
     
-    // Check range handle
-    if (Math.abs(rotatedX - range) < handleHitboxSize / 2 && Math.abs(rotatedY) < handleHitboxSize / 2) {
+    if (Math.abs(rotatedX - range) < handleHitboxSize && Math.abs(rotatedY) < handleHitboxSize) {
         return 'vision-range';
     }
 
-    // Check angle handles
     const angleRad = angle / 2 * (Math.PI / 180);
     const angleHandle1 = { x: range * Math.cos(angleRad), y: range * Math.sin(angleRad) };
-    if (Math.sqrt((rotatedX - angleHandle1.x)**2 + (rotatedY - angleHandle1.y)**2) < handleHitboxSize / 2) {
+    if (Math.sqrt((rotatedX - angleHandle1.x)**2 + (rotatedY - angleHandle1.y)**2) < handleHitboxSize) {
         return 'vision-angle';
     }
     const angleHandle2 = { x: range * Math.cos(-angleRad), y: range * Math.sin(-angleRad) };
-    if (Math.sqrt((rotatedX - angleHandle2.x)**2 + (rotatedY - angleHandle2.y)**2) < handleHitboxSize / 2) {
+    if (Math.sqrt((rotatedX - angleHandle2.x)**2 + (rotatedY - angleHandle2.y)**2) < handleHitboxSize) {
         return 'vision-angle';
     }
     
@@ -377,21 +375,22 @@ function onMouseMove(e) {
             const resizeAmount = state.dragAction.type === 'resize-start' ? -projectedD : projectedD;
             el.width = Math.max(20, orig.width + resizeAmount * 2);
         }
-    } else if (state.dragAction.type === 'vision-range') {
+    } else if (state.dragAction.type === 'vision-range' || state.dragAction.type === 'vision-angle') {
         const el = state.dragAction.elements[0];
         const centerX = el.x + el.width/2;
         const centerY = el.y + el.height/2;
         const dx = mousePos.x - centerX;
         const dy = mousePos.y - centerY;
-        el.vision.range = Math.max(20, Math.sqrt(dx**2 + dy**2));
-    } else if (state.dragAction.type === 'vision-angle') {
-        const el = state.dragAction.elements[0];
-        const centerX = el.x + el.width/2;
-        const centerY = el.y + el.height/2;
-        const dx = mousePos.x - centerX;
-        const dy = mousePos.y - centerY;
-        const angleInRad = Math.atan2(dy, dx) - (el.rotation * Math.PI / 180);
-        el.vision.angle = Math.max(10, Math.abs(angleInRad * 180 / Math.PI) * 2);
+        const mainAngle = -el.rotation * Math.PI / 180; // Inverse rotation
+        const rotatedX = dx * Math.cos(mainAngle) - dy * Math.sin(mainAngle);
+        const rotatedY = dx * Math.sin(mainAngle) + dy * Math.cos(mainAngle);
+
+        if (state.dragAction.type === 'vision-range') {
+            el.vision.range = Math.max(20, rotatedX);
+        } else { // vision-angle
+            const angleInRad = Math.atan2(rotatedY, rotatedX);
+            el.vision.angle = Math.min(359, Math.max(10, Math.abs(angleInRad * 180 / Math.PI) * 2));
+        }
     } else if (['top-left', 'top-right', 'bottom-left', 'bottom-right'].includes(state.dragAction.type)) {
         const el = state.dragAction.elements[0];
         const orig = state.dragAction.originalElements[0];
@@ -429,6 +428,18 @@ function onMouseMove(e) {
                 }
             }
         });
+    } else if (state.dragAction.type === 'rotate') {
+        const el = state.dragAction.elements[0];
+        const orig = state.dragAction.originalElements[0];
+        let centerX = orig.x + orig.width / 2;
+        let centerY = orig.y + orig.height / 2;
+        const startAngle = Math.atan2(state.dragAction.startPos.y - centerY, state.dragAction.startPos.x - centerX);
+        const currentAngle = Math.atan2(mousePos.y - centerY, mousePos.x - centerX);
+        let rotation = orig.rotation + (currentAngle - startAngle) * 180 / Math.PI;
+        if (e.shiftKey) {
+            rotation = Math.round(rotation / 45) * 45;
+        }
+        el.rotation = rotation;
     }
     
     draw();
