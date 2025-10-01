@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Planta Baixa - Segurança Eletrônica v2.1</title>
+    <title>Planta Baixa - Segurança Eletrônica v4.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -44,7 +44,7 @@
 <body class="bg-gray-200 flex flex-col h-screen overflow-hidden">
 
     <header class="bg-[var(--rs-dark-blue)] text-white shadow-md p-2 flex items-center justify-between z-20 flex-wrap gap-2">
-        <h1 class="text-lg lg:text-xl font-bold">Projeto de segurança</h1>
+        <h1 class="text-lg lg:text-xl font-bold">Projeto de Segurança</h1>
         <div class="flex items-center gap-2 lg:gap-4 flex-wrap justify-end">
             <div id="nameControls" class="items-center gap-2">
                 <input type="text" id="objectNameInput" placeholder="Nome do Objeto" class="border bg-gray-100 text-black border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--rs-green)]">
@@ -70,19 +70,19 @@
                 <input type="number" id="fontSizeInput" min="8" max="120" class="border border-gray-300 rounded-md px-2 py-1 text-sm w-20 focus:outline-none focus:ring-2 focus:ring-[var(--rs-green)] text-black">
             </div>
             <div class="flex items-center gap-2">
-                <button id="undoBtn" title="Desfazer (Ctrl+Z)" class="p-2 rounded-md bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                <button id="undoBtn" title="Desfazer (Ctrl+Z)" aria-label="Desfazer" class="p-2 rounded-md bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v6h6"/><path d="M21 12A9 9 0 0 0 6 5.3L3 9"/></svg>
                 </button>
-                <button id="redoBtn" title="Refazer (Ctrl+Y)" class="p-2 rounded-md bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                <button id="redoBtn" title="Refazer (Ctrl+Y)" aria-label="Refazer" class="p-2 rounded-md bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">
                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 3v6h-6"/><path d="M3 12A9 9 0 0 0 18 18.7L21 15"/></svg>
                 </button>
             </div>
             <input type="text" id="projectName" class="border bg-gray-100 text-black border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--rs-green)]">
             <div class="flex items-center gap-2">
-                <button id="portraitBtn" title="Orientação Retrato" class="p-2 rounded-md tool-btn">
+                <button id="portraitBtn" title="Orientação Retrato" aria-label="Orientação Retrato" class="p-2 rounded-md tool-btn">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="2" ry="2"></rect></svg>
                 </button>
-                <button id="landscapeBtn" title="Orientação Paisagem" class="p-2 rounded-md tool-btn">
+                <button id="landscapeBtn" title="Orientação Paisagem" aria-label="Orientação Paisagem" class="p-2 rounded-md tool-btn">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2" ry="2"></rect></svg>
                 </button>
             </div>
@@ -96,92 +96,28 @@
     <div class="flex flex-1 overflow-hidden flex-col lg:flex-row">
         <aside class="w-full lg:w-56 bg-[var(--rs-dark-blue)] text-white shadow-md flex flex-row lg:flex-col items-center lg:items-start p-2 lg:p-4 gap-4 lg:gap-2 z-10 overflow-x-auto lg:overflow-y-auto order-last lg:order-first">
             <h2 class="hidden lg:block text-sm font-bold text-gray-400 my-2 px-2 w-full">FERRAMENTAS</h2>
-            <button id="selectTool" class="flex-shrink-0 flex flex-col lg:flex-row items-center gap-1 lg:gap-3 p-2 lg:px-2 lg:py-2 rounded-md tool-btn active lg:w-full">
-                <svg xmlns="http://www.w3.org/2000/svg" class="text-white" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 3 7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/><path d="m13 13 6 6"/></svg>
-                <span class="text-xs lg:text-sm font-medium">Selecionar</span>
-            </button>
-            <button id="wallTool" class="flex-shrink-0 flex flex-col lg:flex-row items-center gap-1 lg:gap-3 p-2 lg:px-2 lg:py-2 rounded-md tool-btn lg:w-full">
-                <svg xmlns="http://www.w3.org/2000/svg" class="text-white" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L3 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z"/><path d="m14.5 12.5 2-2"/><path d="m11.5 9.5 2-2"/><path d="m8.5 6.5 2-2"/><path d="m17.5 15.5 2-2"/></svg>
-                <span class="text-xs lg:text-sm font-medium">Parede</span>
-            </button>
-            <button id="textTool" class="flex-shrink-0 flex flex-col lg:flex-row items-center gap-1 lg:gap-3 p-2 lg:px-2 lg:py-2 rounded-md tool-btn lg:w-full">
-                 <svg xmlns="http://www.w3.org/2000/svg" class="text-white" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15V6M3 15V6M3 15h18M3 6h18"/><path d="M12 6v15"/></svg>
-                 <span class="text-xs lg:text-sm font-medium">Texto</span>
-            </button>
+            <div id="tools-container" class="contents"></div>
             <div class="h-full lg:h-auto border-l lg:border-t border-gray-700 mx-2 my-0 lg:my-4 lg:mx-0 lg:w-full"></div>
-            <h2 class="hidden lg:block text-sm font-bold text-gray-400 mb-2 px-2 w-full">FORMAS</h2>
-            <button class="shape-btn flex-shrink-0 flex flex-col lg:flex-row items-center gap-1 lg:gap-3 p-2 lg:px-2 lg:py-2 rounded-md tool-btn lg:w-full" data-type="rectangle">
-                <svg xmlns="http://www.w3.org/2000/svg" class="text-white" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
-                <span class="text-xs lg:text-sm font-medium">Retângulo</span>
-            </button>
-            <button class="shape-btn flex-shrink-0 flex flex-col lg:flex-row items-center gap-1 lg:gap-3 p-2 lg:px-2 lg:py-2 rounded-md tool-btn lg:w-full" data-type="circle">
-                <svg xmlns="http://www.w3.org/2000/svg" class="text-white" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle></svg>
-                <span class="text-xs lg:text-sm font-medium">Círculo</span>
-            </button>
-            <button class="shape-btn flex-shrink-0 flex flex-col lg:flex-row items-center gap-1 lg:gap-3 p-2 lg:px-2 lg:py-2 rounded-md tool-btn lg:w-full" data-type="triangle">
-                <svg xmlns="http://www.w3.org/2000/svg" class="text-white" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path></svg>
-                <span class="text-xs lg:text-sm font-medium">Triângulo</span>
-            </button>
+            <h2 class="hidden lg:block text-sm font-bold text-gray-400 mb-2 px-2 w-full">ÁREAS</h2>
+            <div id="shapes-container" class="contents"></div>
             <div class="h-full lg:h-auto border-l lg:border-t border-gray-700 mx-2 my-0 lg:my-4 lg:mx-0 lg:w-full"></div>
             <h2 class="hidden lg:block text-sm font-bold text-gray-400 mb-2 px-2 w-full">EQUIPAMENTOS</h2>
-            <button class="object-btn flex-shrink-0 flex flex-col lg:flex-row items-center gap-1 lg:gap-3 p-2 lg:px-2 lg:py-2 rounded-md tool-btn lg:w-full" data-type="camera">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><circle cx="12" cy="12" r="4"/></svg>
-                <span class="text-xs lg:text-sm font-medium">Câmera</span>
-            </button>
-            <button class="object-btn flex-shrink-0 flex flex-col lg:flex-row items-center gap-1 lg:gap-3 p-2 lg:px-2 lg:py-2 rounded-md tool-btn lg:w-full" data-type="motion_sensor">
-                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.5 12a3.5 3.5 0 0 0-3.5-3.5V6a6 6 0 0 1 6 6h-2.5Z"/><path d="M8.5 12a3.5 3.5 0 0 1 3.5 3.5V18a6 6 0 0 0-6-6h2.5Z"/><path d="m12 15.5 3.5-3.5"/><path d="M8.5 12 12 8.5"/></svg>
-                 <span class="text-xs lg:text-sm font-medium text-center">S. Movim.</span>
-            </button>
-            <button class="object-btn flex-shrink-0 flex flex-col lg:flex-row items-center gap-1 lg:gap-3 p-2 lg:px-2 lg:py-2 rounded-md tool-btn lg:w-full" data-type="open_sensor">
-                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="16" x="3" y="6" rx="2"/><path d="M11 12h2"/></svg>
-                 <span class="text-xs lg:text-sm font-medium text-center">S. Abert.</span>
-            </button>
-            <button class="object-btn flex-shrink-0 flex flex-col lg:flex-row items-center gap-1 lg:gap-3 p-2 lg:px-2 lg:py-2 rounded-md tool-btn lg:w-full" data-type="siren">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c2.2 0 4 1.8 4 4s-1.8 4-4 4-4-1.8-4-4 1.8-4 4-4z"/><path d="M4.2 11.2C3 10 2 11 2 12.4v2.2c0 1.5 1.2 2.5 2.5 2.5h1.4c.5 0 .9.3 1.2.6l2.3 2.3c1.3 1.3 3.3.4 3.3-1.4v-6.6c0-1.8-2-2.7-3.3-1.4L8.1 11c-.3.3-.7.6-1.2.6H5.5C4.8 11.6 4.4 11.4 4.2 11.2z"/><path d="M18 8.7a4.2 4.2 0 0 1 0 6.6"/><path d="M20.5 6.2a8.5 8.5 0 0 1 0 11.6"/></svg>
-                <span class="text-xs lg:text-sm font-medium">Sirene</span>
-            </button>
-            <button class="object-btn flex-shrink-0 flex flex-col lg:flex-row items-center gap-1 lg:gap-3 p-2 lg:px-2 lg:py-2 rounded-md tool-btn lg:w-full" data-type="dvr">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M12 12h.01"/><path d="M17 12h.01"/><path d="M7 12h.01"/></svg>
-                <span class="text-xs lg:text-sm font-medium">DVR</span>
-            </button>
-            <button class="object-btn flex-shrink-0 flex flex-col lg:flex-row items-center gap-1 lg:gap-3 p-2 lg:px-2 lg:py-2 rounded-md tool-btn lg:w-full" data-type="alarm_panel">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fb923c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
-                <span class="text-xs lg:text-sm font-medium">Central Alarme</span>
-            </button>
-            <button class="object-btn flex-shrink-0 flex flex-col lg:flex-row items-center gap-1 lg:gap-3 p-2 lg:px-2 lg:py-2 rounded-md tool-btn lg:w-full" data-type="remote_control">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="2" width="8" height="20" rx="2"/><path d="M7 6v0"/><path d="M7 12v0"/><path d="M7 18v0"/></svg>
-                <span class="text-xs lg:text-sm font-medium">C. Remoto</span>
-            </button>
-            <button class="object-btn flex-shrink-0 flex flex-col lg:flex-row items-center gap-1 lg:gap-3 p-2 lg:px-2 lg:py-2 rounded-md tool-btn lg:w-full" data-type="keypad">
-                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#facc15" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 8h.01"/><path d="M12 8h.01"/><path d="M17 8h.01"/><path d="M7 13h.01"/><path d="M12 13h.01"/><path d="M17 13h.01"/><path d="M7 18h.01"/><path d="M12 18h.01"/><path d="M17 18h.01"/></svg>
-                 <span class="text-xs lg:text-sm font-medium">Teclado</span>
-            </button>
+            <div id="equipment-container" class="contents"></div>
             <div class="h-full lg:h-auto border-l lg:border-t border-gray-700 mx-2 my-0 lg:my-4 lg:mx-0 lg:w-full"></div>
-            <button id="newProjectBtn" class="flex-shrink-0 flex flex-col lg:flex-row items-center gap-1 lg:gap-3 p-2 lg:px-2 lg:py-2 rounded-md tool-btn hover:bg-green-500 lg:w-full">
-                <svg xmlns="http://www.w3.org/2000/svg" class="text-white" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
-                <span class="text-xs lg:text-sm font-medium">Novo Projeto</span>
-            </button>
-            <button id="duplicateBtn" class="flex-shrink-0 flex flex-col lg:flex-row items-center gap-1 lg:gap-3 p-2 lg:px-2 lg:py-2 rounded-md tool-btn hover:bg-blue-500 lg:w-full">
-                 <svg xmlns="http://www.w3.org/2000/svg" class="text-white" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                 <span class="text-xs lg:text-sm font-medium">Duplicar</span>
-            </button>
-            <button id="deleteBtn" class="flex-shrink-0 flex flex-col lg:flex-row items-center gap-1 lg:gap-3 p-2 lg:px-2 lg:py-2 rounded-md tool-btn hover:bg-red-500 lg:w-full">
-                <svg xmlns="http://www.w3.org/2000/svg" class="text-white" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="m5 6 1 0 1-0"/><path d="M10 3v3h4V3"/></svg>
-                <span class="text-xs lg:text-sm font-medium">Apagar</span>
-            </button>
+            <div id="actions-container" class="contents"></div>
         </aside>
 
         <main id="canvas-container" class="flex-1 bg-gray-300 flex items-center justify-center p-4 overflow-auto relative">
             <canvas id="floorPlanCanvas" class="shadow-lg"></canvas>
             <div id="zoom-controls" class="absolute bottom-28 lg:bottom-4 right-4 flex flex-col items-center gap-2">
-                <button id="zoomInBtn" class="bg-[var(--rs-dark-blue)] text-white w-10 h-10 rounded-full flex items-center justify-center shadow-lg hover:bg-opacity-90">
+                <button id="zoomInBtn" aria-label="Aproximar" class="bg-[var(--rs-dark-blue)] text-white w-10 h-10 rounded-full flex items-center justify-center shadow-lg hover:bg-opacity-90">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                 </button>
                 <div id="zoom-display" class="bg-[var(--rs-dark-blue)] text-white text-xs font-bold rounded-md px-2 py-1 shadow-lg">100%</div>
-                <button id="zoomOutBtn" class="bg-[var(--rs-dark-blue)] text-white w-10 h-10 rounded-full flex items-center justify-center shadow-lg hover:bg-opacity-90">
+                <button id="zoomOutBtn" aria-label="Afastar" class="bg-[var(--rs-dark-blue)] text-white w-10 h-10 rounded-full flex items-center justify-center shadow-lg hover:bg-opacity-90">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                 </button>
-                 <button id="fitToScreenBtn" class="bg-[var(--rs-dark-blue)] text-white w-10 h-10 rounded-full flex items-center justify-center shadow-lg hover:bg-opacity-90 mt-2" title="Ajustar à Tela">
+                 <button id="fitToScreenBtn" class="bg-[var(--rs-dark-blue)] text-white w-10 h-10 rounded-full flex items-center justify-center shadow-lg hover:bg-opacity-90 mt-2" title="Ajustar à Tela" aria-label="Ajustar à Tela">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
                 </button>
             </div>
@@ -190,8 +126,6 @@
     
     <div id="notification" class="absolute top-5 right-5 bg-red-500 text-white px-4 py-2 rounded-md shadow-lg transition-transform transform translate-x-[120%] duration-300 z-50"></div>
 
-    <!-- A MÁGICA ACONTECE AQUI! CARREGANDO O JAVASCRIPT COMO UM MÓDULO -->
     <script type="module" src="./js/main.js"></script>
-
 </body>
 </html>

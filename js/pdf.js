@@ -1,43 +1,41 @@
+// js/pdf.js
 import { state, images, objectTitles, dom } from './state.js';
 import { draw, drawScene } from './canvas.js';
-import { showNotification } from './actions.js';
+import { showNotification } from './ui.js';
 
 export function downloadPDF() {
     const originalIds = [...state.selectedElementIds];
-    state.selectedElementIds = []; // Deseleciona temporariamente para uma captura limpa
+    state.selectedElementIds = [];
     draw();
     
     setTimeout(() => {
         try {
             if (state.elements.length === 0) {
-                showNotification("O projeto está vazio."); return;
+                showNotification("O projeto está vazio.", 'error'); return;
             }
             if (typeof window.jspdf === 'undefined' || typeof window.jspdf.jsPDF === 'undefined') {
-                showNotification("Erro: A biblioteca jsPDF não foi carregada."); return;
+                showNotification("Erro: A biblioteca jsPDF não foi carregada.", 'error'); return;
             }
 
             const { jsPDF } = window.jspdf;
-            const objectTypesInUse = [...new Set(state.elements.filter(el => el.type === 'object').map(el => el.subType))];
+            const equipmentInUse = state.elements.filter(el => el.type === 'object');
+            const objectTypesInUse = [...new Set(equipmentInUse.map(el => el.subType))];
             
             const objectCounts = {};
-            state.elements.forEach(el => {
-                if (el.type === 'object') {
-                    objectCounts[el.subType] = (objectCounts[el.subType] || 0) + 1;
-                }
+            equipmentInUse.forEach(el => {
+                objectCounts[el.subType] = (objectCounts[el.subType] || 0) + 1;
             });
 
             let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
             state.elements.forEach(el => {
                 getElementCorners(el).forEach(p => {
-                    minX = Math.min(minX, p.x);
-                    minY = Math.min(minY, p.y);
-                    maxX = Math.max(maxX, p.x);
-                    maxY = Math.max(maxY, p.y);
+                    minX = Math.min(minX, p.x); minY = Math.min(minY, p.y);
+                    maxX = Math.max(maxX, p.x); maxY = Math.max(maxY, p.y);
                 });
             });
 
             if (maxX === -Infinity) {
-                showNotification("O projeto está vazio."); return;
+                showNotification("O projeto está vazio.", 'error'); return;
             }
 
             const pdf = new jsPDF({ orientation: state.orientation, unit: 'mm', format: 'a4' });
@@ -62,7 +60,7 @@ export function downloadPDF() {
                 let legendY = marginMM + projectNameHeightMM + 5;
                 pdf.setFontSize(12);
                 pdf.setFont('helvetica', 'bold');
-                pdf.text("Legenda:", marginMM, legendY);
+                pdf.text("Legenda de Equipamentos:", marginMM, legendY);
                 legendY += legendItemHeightMM;
                 pdf.setFontSize(9);
                 pdf.setFont('helvetica', 'normal');
@@ -76,12 +74,10 @@ export function downloadPDF() {
                     const count = objectCounts[subType] || 0;
                     const title = `${objectTitles[subType] || subType} (x${count})`;
                     legendIconCtx.clearRect(0, 0, 64, 64);
-                    if (img && img.complete) {
-                        legendIconCtx.drawImage(img, 0, 0, 64, 64);
-                    }
+                    if (img && img.complete) legendIconCtx.drawImage(img, 0, 0, 64, 64);
                     const iconPngDataUrl = legendIconCanvas.toDataURL('image/png');
                     pdf.addImage(iconPngDataUrl, 'PNG', marginMM, legendY, iconSizeMM, iconSizeMM);
-                    pdf.text(title, marginMM + iconSizeMM + 2, legendY + iconSizeMM / 2 + 2);
+                    pdf.text(title, marginMM + iconSizeMM + 2, legendY + iconSizeMM / 2 + 1);
                     legendY += legendItemHeightMM;
                 });
             }
@@ -93,37 +89,22 @@ export function downloadPDF() {
             const contentHeight = (maxY - minY) + padding * 2;
             
             if (!isFinite(contentWidth) || contentWidth <= 0 || !isFinite(contentHeight) || contentHeight <= 0) {
-                showNotification("Conteúdo inválido para exportação."); return;
+                showNotification("Conteúdo inválido para exportação.", 'error'); return;
             }
 
-            const highResScale = 4;
-            const MAX_PIXELS = 16777216;
-            let tempCanvasWidth = contentWidth * highResScale;
-            let tempCanvasHeight = contentHeight * highResScale;
-
-            if (tempCanvasWidth * tempCanvasHeight > MAX_PIXELS) {
-                const ratio = tempCanvasWidth / tempCanvasHeight;
-                tempCanvasHeight = Math.sqrt(MAX_PIXELS / ratio);
-                tempCanvasWidth = tempCanvasHeight * ratio;
-            }
+            const highResScale = 3;
+            tempCanvas.width = contentWidth * highResScale;
+            tempCanvas.height = contentHeight * highResScale;
             
-            if (!isFinite(tempCanvasWidth) || tempCanvasWidth <= 0 || !isFinite(tempCanvasHeight) || tempCanvasHeight <= 0) {
-                showNotification("Erro ao calcular dimensões do PDF."); return;
-            }
-
-            tempCanvas.width = Math.round(tempCanvasWidth);
-            tempCanvas.height = Math.round(tempCanvasHeight);
-            const finalScale = tempCanvas.width / contentWidth;
-
             tempCtx.fillStyle = 'white';
             tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
             tempCtx.save();
-            tempCtx.scale(finalScale, finalScale);
+            tempCtx.scale(highResScale, highResScale);
             tempCtx.translate(-minX + padding, -minY + padding);
             drawScene(tempCtx, state.elements);
             tempCtx.restore();
             
-            const imgData = tempCanvas.toDataURL('image/jpeg', 0.98);
+            const imgData = tempCanvas.toDataURL('image/jpeg', 0.95);
             const contentRatio = contentWidth / contentHeight;
             const pdfDrawingRatio = drawingWidthMM / drawingHeightMM;
             let finalImageWidthMM, finalImageHeightMM;
@@ -143,12 +124,13 @@ export function downloadPDF() {
             pdf.setDrawColor(180, 180, 180);
             pdf.rect(marginMM / 2, marginMM / 2, pdfWidthMM - marginMM, pdfHeightMM - marginMM);
             pdf.save(`${state.projectName}.pdf`);
+            showNotification('PDF gerado com sucesso!', 'success');
 
         } catch(error) {
             console.error("Erro ao gerar PDF:", error);
-            showNotification(`Ocorreu um erro ao gerar o PDF. (${error.message || error})`);
+            showNotification(`Ocorreu um erro ao gerar o PDF.`, 'error');
         } finally {
-            state.selectedElementIds = originalIds; // Restaura a seleção
+            state.selectedElementIds = originalIds;
             draw();
         }
     }, 100);
@@ -158,10 +140,13 @@ function getElementCorners(el) {
     if (el.type === 'wall') {
         return [{x: el.x1, y: el.y1}, {x: el.x2, y: el.y2}];
     }
+    if (el.type === 'door' || el.type === 'window') return [];
+    
     let { x, y, rotation, width, height } = el;
     if (el.type === 'text') {
         dom.ctx.font = `${el.fontSize}px ${el.fontFamily}`;
         width = dom.ctx.measureText(el.text).width;
+        height = el.fontSize;
     }
     const cx = x + width / 2;
     const cy = y + height / 2;

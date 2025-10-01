@@ -1,10 +1,11 @@
+// js/main.js
 import { state, initializeDOMReferences, dom } from './state.js';
 import { draw } from './canvas.js';
-import { addEventListeners } from './events.js';
-import { updateZoomDisplay, deleteSelected, duplicateSelected, zoomIn, zoomOut, fitToScreen, updateSelectedElement, showNotification } from './actions.js';
+import { initializeCanvasEvents } from './events.js';
+import { updateSelectedElement, deleteSelected, duplicateSelected, zoomIn, zoomOut, fitToScreen } from './actions.js';
 import { downloadPDF } from './pdf.js';
-
-// --- FUNÇÕES DE PERSISTÊNCIA (localStorage) ---
+import { populateToolbar, toggleControls, updateUndoRedoButtons, updateZoomDisplay, showNotification, updateActiveToolButton } from './ui.js';
+import { TOOL_CONFIG } from './config.js';
 
 function saveProjectToLocalStorage() {
     try {
@@ -38,12 +39,10 @@ function loadProjectFromLocalStorage() {
     return false;
 }
 
-// --- FUNÇÕES DE HISTÓRICO (UNDO/REDO) ---
-
 export function saveState() {
     state.history.splice(state.historyIndex + 1);
     state.history.push(JSON.parse(JSON.stringify(state.elements)));
-    if (state.history.length > 21) { // Aumentando um pouco o limite
+    if (state.history.length > 50) {
         state.history.shift();
     }
     state.historyIndex = state.history.length - 1;
@@ -75,91 +74,37 @@ function redo() {
     }
 }
 
-// Para que os atalhos de teclado acessem as funções de undo/redo
 window.undo = undo;
 window.redo = redo;
 
-// --- FUNÇÕES DE UI E CONTROLE ---
-
 export function setCanvasSize() {
-    const containerWidth = dom.canvasContainer.clientWidth - 40;
-    const containerHeight = dom.canvasContainer.clientHeight - 40;
+    const container = dom.canvasContainer;
+    const padding = 32;
+    const containerWidth = container.clientWidth - padding;
+    const containerHeight = container.clientHeight - padding;
+    
     const ratio = state.orientation === 'portrait' ? 210 / 297 : 297 / 210;
-    let canvasWidth, canvasHeight;
-
-    if (containerWidth / containerHeight > ratio) {
-        canvasHeight = containerHeight;
-        canvasWidth = canvasHeight * ratio;
-    } else {
-        canvasWidth = containerWidth;
-        canvasHeight = canvasWidth / ratio;
-    }
-
-    dom.canvas.width = canvasWidth;
-    dom.canvas.height = canvasHeight;
+    
+    dom.canvas.width = (containerWidth / containerHeight > ratio) 
+        ? containerHeight * ratio 
+        : containerWidth;
+    dom.canvas.height = (containerWidth / containerHeight > ratio)
+        ? containerHeight
+        : containerWidth / ratio;
+        
     draw();
 }
 
-export function changeOrientation(orientation) {
+function changeOrientation(orientation) {
     state.orientation = orientation;
-    const isPortrait = orientation === 'portrait';
-    document.getElementById('portraitBtn').classList.toggle('active', isPortrait);
-    document.getElementById('portraitBtn').classList.toggle('bg-gray-700', !isPortrait);
-    document.getElementById('landscapeBtn').classList.toggle('active', !isPortrait);
-    document.getElementById('landscapeBtn').classList.toggle('bg-gray-700', isPortrait);
+    document.getElementById('portraitBtn').classList.toggle('active', orientation === 'portrait');
+    document.getElementById('landscapeBtn').classList.toggle('active', orientation !== 'portrait');
     setCanvasSize();
     saveProjectToLocalStorage();
 }
 
-export function updateActiveToolButton(activeBtn) {
-    document.querySelectorAll('.tool-btn').forEach(b => {
-        b.classList.remove('active');
-        if (b.id !== 'portraitBtn' && b.id !== 'landscapeBtn') {
-            b.classList.remove('bg-gray-700');
-        }
-    });
-    const btnToActivate = activeBtn || document.getElementById(state.activeTool === 'select' ? 'selectTool' : `${state.activeTool}Tool`);
-    if(btnToActivate) btnToActivate.classList.add('active');
-}
-
-export function toggleControls(element) {
-    const textControls = document.getElementById('textControls');
-    const shapeControls = document.getElementById('shapeControls');
-    const nameControls = document.getElementById('nameControls');
-    
-    textControls.style.display = 'none';
-    shapeControls.style.display = 'none';
-    nameControls.style.display = 'none';
-
-    if (!element) return;
-
-    if (element.type === 'text') {
-        textControls.style.display = 'flex';
-        document.getElementById('fontFamilySelect').value = element.fontFamily;
-        document.getElementById('fontSizeInput').value = element.fontSize;
-    } else if (element.type === 'shape') {
-        shapeControls.style.display = 'flex';
-        nameControls.style.display = 'flex';
-        document.getElementById('strokeColorPicker').value = element.strokeColor;
-        document.getElementById('strokeColorPreview').style.backgroundColor = element.strokeColor;
-        document.getElementById('fillColorPicker').value = element.fillColor;
-        document.getElementById('fillColorPreview').style.backgroundColor = element.fillColor;
-        document.getElementById('objectNameInput').value = element.name || '';
-    } else if (element.type === 'object') {
-        nameControls.style.display = 'flex';
-        document.getElementById('objectNameInput').value = element.name || '';
-    }
-}
-
-function updateUndoRedoButtons() {
-    const undoBtn = document.getElementById('undoBtn');
-    const redoBtn = document.getElementById('redoBtn');
-    undoBtn.disabled = state.historyIndex <= 0;
-    redoBtn.disabled = state.historyIndex >= state.history.length - 1;
-}
-
 function clearProject() {
-    if (confirm("Você tem certeza que deseja limpar o canvas? O projeto atual será substituído.")) {
+    if (confirm("Você tem certeza que deseja iniciar um novo projeto? Todas as alterações não salvas serão perdidas.")) {
         state.elements = [];
         state.projectName = 'Projeto Sem Título';
         state.selectedElementIds = [];
@@ -170,74 +115,79 @@ function clearProject() {
     }
 }
 
-// --- FUNÇÃO DE INICIALIZAÇÃO ---
-
-function initialize() {
-    initializeDOMReferences();
-    
-    // Anexa os listeners aos botões
+function initializeEventListeners() {
     document.getElementById('undoBtn').addEventListener('click', undo);
     document.getElementById('redoBtn').addEventListener('click', redo);
     document.getElementById('projectName').addEventListener('change', e => {
-        state.projectName = e.target.value;
+        state.projectName = e.target.value || 'Projeto Sem Título';
         saveProjectToLocalStorage();
     });
     document.getElementById('portraitBtn').addEventListener('click', () => changeOrientation('portrait'));
     document.getElementById('landscapeBtn').addEventListener('click', () => changeOrientation('landscape'));
     document.getElementById('downloadPdfBtn').addEventListener('click', downloadPDF);
-    document.getElementById('newProjectBtn').addEventListener('click', clearProject);
-    document.getElementById('duplicateBtn').addEventListener('click', duplicateSelected);
-    document.getElementById('deleteBtn').addEventListener('click', deleteSelected);
-    document.getElementById('zoomInBtn').addEventListener('click', zoomIn);
-    document.getElementById('zoomOutBtn').addEventListener('click', zoomOut);
-    document.getElementById('fitToScreenBtn').addEventListener('click', fitToScreen);
+
+    document.getElementById('tools-container').addEventListener('click', (e) => {
+        const btn = e.target.closest('.tool-btn-main');
+        if (!btn) return;
+        state.activeTool = btn.dataset.type;
+        updateActiveToolButton(btn.id);
+    });
+    document.getElementById('shapes-container').addEventListener('click', (e) => {
+        const btn = e.target.closest('.shape-btn');
+        if (!btn) return;
+        state.activeTool = 'shape';
+        state.toolSubType = btn.dataset.type;
+        updateActiveToolButton(btn.id);
+    });
+    document.getElementById('equipment-container').addEventListener('click', (e) => {
+        const btn = e.target.closest('.object-btn');
+        if (!btn) return;
+        state.activeTool = 'object';
+        state.toolSubType = btn.dataset.type;
+        updateActiveToolButton(btn.id);
+    });
+    document.getElementById('actions-container').addEventListener('click', (e) => {
+        const btn = e.target.closest('.action-btn');
+        if (!btn) return;
+        switch(btn.dataset.type) {
+            case 'newProject': clearProject(); break;
+            case 'duplicate': duplicateSelected(); break;
+            case 'delete': deleteSelected(); break;
+        }
+    });
     
-    // Listeners dos controles de edição
     document.getElementById('fontFamilySelect').addEventListener('change', (e) => updateSelectedElement({ fontFamily: e.target.value }));
     document.getElementById('fontSizeInput').addEventListener('change', (e) => updateSelectedElement({ fontSize: parseInt(e.target.value, 10) }));
     document.getElementById('objectNameInput').addEventListener('input', (e) => updateSelectedElement({ name: e.target.value }));
     document.getElementById('strokeColorPicker').addEventListener('input', (e) => updateSelectedElement({ strokeColor: e.target.value }));
     document.getElementById('fillColorPicker').addEventListener('input', (e) => updateSelectedElement({ fillColor: e.target.value }));
-
-    // Listeners das ferramentas
-    document.querySelectorAll('.tool-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            if (btn.classList.contains('shape-btn')) {
-                state.activeTool = 'shape';
-                state.shapeToAdd = btn.dataset.type;
-            } else if (btn.classList.contains('object-btn')) {
-                state.activeTool = 'add_object';
-                state.objectToAdd = btn.dataset.type;
-            } else if (btn.id.includes('Tool')) {
-                state.activeTool = btn.id.replace('Tool', '');
-            }
-            updateActiveToolButton(btn);
-        });
-    });
-
-    addEventListeners(); // Adiciona os listeners de canvas e teclado
-
-    // Carrega o projeto
-    const projectLoaded = loadProjectFromLocalStorage();
-    if (!projectLoaded) {
-        changeOrientation('portrait');
-    } else {
-        changeOrientation(state.orientation);
-    }
     
-    setCanvasSize();
-    updateZoomDisplay();
-    
-    if (!projectLoaded) {
+    document.getElementById('zoomInBtn').addEventListener('click', () => { zoomIn(); updateZoomDisplay(); });
+    document.getElementById('zoomOutBtn').addEventListener('click', () => { zoomOut(); updateZoomDisplay(); });
+    document.getElementById('fitToScreenBtn').addEventListener('click', () => { fitToScreen(); updateZoomDisplay(); });
+
+    window.updateActiveTool = () => updateActiveToolButton(TOOL_CONFIG[state.activeTool].id);
+}
+
+function initialize() {
+    initializeDOMReferences();
+    populateToolbar();
+    initializeEventListeners();
+    initializeCanvasEvents();
+
+    if (!loadProjectFromLocalStorage()) {
         saveState();
     } else {
         state.history = [JSON.parse(JSON.stringify(state.elements))];
         state.historyIndex = 0;
-        updateUndoRedoButtons();
     }
+    
+    changeOrientation(state.orientation);
+    updateUndoRedoButtons();
+    updateZoomDisplay();
+    updateActiveToolButton('selectTool');
     
     draw();
 }
 
-// Inicia a aplicação quando o DOM estiver pronto.
 document.addEventListener('DOMContentLoaded', initialize);

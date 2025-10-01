@@ -1,28 +1,29 @@
+// js/events.js
 import { state, dom } from './state.js';
 import { draw, getResizeHandles } from './canvas.js';
-import { saveState, toggleControls, updateActiveToolButton, setCanvasSize } from './main.js';
+import { saveState, setCanvasSize } from './main.js';
 import { editText, deleteSelected, duplicateSelected } from './actions.js';
+import { toggleControls } from './ui.js';
+import { TOOL_CONFIG } from './config.js';
 
-// --- FUNÇÕES AUXILIARES DE EVENTOS (sem alterações) ---
 function getEventPos(e) {
     const rect = dom.canvas.getBoundingClientRect();
-    let clientX, clientY;
-    if (e.touches && e.touches.length > 0) {
-        clientX = e.touches[0].clientX;
-        clientY = e.touches[0].clientY;
-    } else {
-        clientX = e.clientX;
-        clientY = e.clientY;
-    }
+    const clientX = e.touches?.[0]?.clientX ?? e.clientX;
+    const clientY = e.touches?.[0]?.clientY ?? e.clientY;
     return { 
         x: (clientX - rect.left - state.pan.x) / state.zoom, 
         y: (clientY - rect.top - state.pan.y) / state.zoom 
     };
 }
+
 function getElementAtPos(x, y) {
     for (let i = state.elements.length - 1; i >= 0; i--) {
         const el = state.elements[i];
-        
+        if (el.type === 'wall' || el.type === 'door' || el.type === 'window') {
+            if (el.type === 'wall' && distToSegment({x, y}, {x: el.x1, y: el.y1}, {x: el.x2, y: el.y2}) < el.thickness / 2) return el;
+            continue;
+        }
+
         const centerX = (el.type === 'text') ? el.x : el.x + el.width/2;
         const centerY = (el.type === 'text') ? el.y : el.y + el.height/2;
 
@@ -32,35 +33,21 @@ function getElementAtPos(x, y) {
         const rotatedX = dx * Math.cos(angle) - dy * Math.sin(angle);
         const rotatedY = dx * Math.sin(angle) + dy * Math.cos(angle);
 
-        if (el.type === 'object' || (el.type === 'shape' && el.subType === 'rectangle')) {
-            if (rotatedX > -el.width / 2 && rotatedX < el.width / 2 && rotatedY > -el.height / 2 && rotatedY < el.height / 2) {
-                return el;
-            }
-        } else if (el.type === 'shape' && el.subType === 'circle') {
-            if (Math.sqrt(rotatedX**2 + rotatedY**2) < el.width / 2) {
-                return el;
-            }
-        } else if (el.type === 'shape' && el.subType === 'triangle') {
-            const p = {x: rotatedX, y: rotatedY};
-            const p0 = {x: 0, y: -el.height / 2};
-            const p1 = {x: el.width / 2, y: el.height / 2};
-            const p2 = {x: -el.width / 2, y: el.height / 2};
-            if (isPointInTriangle(p, p0, p1, p2)) return el;
-
-        } else if (el.type === 'text') {
+        let hit = false;
+        if (el.type === 'text') {
             dom.ctx.font = `${el.fontSize}px ${el.fontFamily}`;
             const metrics = dom.ctx.measureText(el.text);
-            if (rotatedX > 0 && rotatedX < metrics.width && rotatedY > 0 && rotatedY < el.fontSize) {
-               return el;
-            }
-        } else if (el.type === 'wall') {
-            if (distToSegment({x, y}, {x: el.x1, y: el.y1}, {x: el.x2, y: el.y2}) < 5 / state.zoom) return el;
+            hit = (rotatedX >= 0 && rotatedX <= metrics.width && rotatedY >= 0 && rotatedY <= el.fontSize);
+        } else { // rectangle, object, shape
+            hit = (rotatedX > -el.width / 2 && rotatedX < el.width / 2 && rotatedY > -el.height / 2 && rotatedY < el.height / 2);
         }
+        if (hit) return el;
     }
     return null;
 }
+
 function getHandleAtPos(el, x, y) {
-    const handleHitboxSize = 8 / state.zoom;
+    const handleHitboxSize = 10 / state.zoom;
     if (el.type === 'wall') {
         if (Math.sqrt((x - el.x1)**2 + (y - el.y1)**2) < handleHitboxSize) return 'start';
         if (Math.sqrt((x - el.x2)**2 + (y - el.y2)**2) < handleHitboxSize) return 'end';
@@ -69,15 +56,8 @@ function getHandleAtPos(el, x, y) {
     
     let centerX = el.type === 'text' ? el.x : el.x + el.width / 2;
     let centerY = el.type === 'text' ? el.y : el.y + el.height / 2;
-    
     let boxHeight = el.type === 'text' ? el.fontSize : el.height;
-    let boxWidth;
-    if (el.type === 'text') {
-        dom.ctx.font = `${el.fontSize}px ${el.fontFamily}`;
-        boxWidth = dom.ctx.measureText(el.text).width;
-    } else {
-        boxWidth = el.width;
-    }
+    let boxWidth = (el.type === 'text') ? dom.ctx.measureText(el.text).width : el.width;
 
     const dx = x - centerX;
     const dy = y - centerY;
@@ -85,9 +65,8 @@ function getHandleAtPos(el, x, y) {
     const rotatedX = dx * Math.cos(angle) - dy * Math.sin(angle);
     const rotatedY = dx * Math.sin(angle) + dy * Math.cos(angle);
 
-    const rotHandleY = (el.type === 'text' ? 0 : -boxHeight / 2) - 15/state.zoom;
-    const rotHandleX = (el.type === 'text' ? boxWidth/2 : 0);
-    if (Math.sqrt((rotatedX - rotHandleX)**2 + (rotatedY - rotHandleY)**2) < handleHitboxSize) return 'rotate';
+    const rotHandleY = -boxHeight / 2 - 20/state.zoom;
+    if (Math.sqrt((rotatedX - (boxWidth/2))**2 + (rotatedY - rotHandleY)**2) < handleHitboxSize) return 'rotate';
      
     if (el.type !== 'text') {
         const handles = getResizeHandles(el);
@@ -99,6 +78,7 @@ function getHandleAtPos(el, x, y) {
     }
     return null;
 }
+
 function distToSegment(p, v, w) {
     const l2 = (v.x - w.x)**2 + (v.y - w.y)**2;
     if (l2 === 0) return Math.sqrt((p.x - v.x)**2 + (p.y - v.y)**2);
@@ -107,19 +87,90 @@ function distToSegment(p, v, w) {
     const closestPoint = { x: v.x + t * (w.x - v.x), y: v.y + t * (w.y - v.y) };
     return Math.sqrt((p.x - closestPoint.x)**2 + (p.y - closestPoint.y)**2);
 }
-function isPointInTriangle(p, p0, p1, p2) {
-    const dX = p.x - p2.x;
-    const dY = p.y - p2.y;
-    const dX21 = p2.x - p1.x;
-    const dY12 = p1.y - p2.y;
-    const D = dY12 * (p0.x - p2.x) + dX21 * (p0.y - p2.y);
-    const s = dY12 * dX + dX21 * dY;
-    const t = (p2.y - p0.y) * dX + (p0.x - p2.x) * dY;
-    if (D < 0) return s <= 0 && t <= 0 && s + t >= D;
-    return s >= 0 && t >= 0 && s + t <= D;
+
+function createElement(type, subType, pos) {
+    const commonProps = { id: Date.now(), x: pos.x, y: pos.y, rotation: 0, name: '' };
+    switch(type) {
+        case 'wall': return { id: Date.now(), type: 'wall', x1: pos.x, y1: pos.y, x2: pos.x, y2: pos.y, thickness: 10 };
+        case 'text': return { ...commonProps, type: 'text', text: 'Novo Texto', fontSize: 16, fontFamily: 'Montserrat' };
+        case 'shape': return { ...commonProps, type: 'shape', subType, width: 200, height: 200, strokeColor: 'transparent', fillColor: 'rgba(200, 200, 200, 0.5)' };
+        case 'object': return { ...commonProps, type: 'object', subType, width: 50, height: 50 };
+        default: return null;
+    }
 }
 
-// --- MANIPULADORES DE EVENTOS ---
+function handleSelectToolMouseDown(e, mousePos) {
+    const singleSelectedEl = state.selectedElementIds.length === 1 ? state.elements.find(el => el.id === state.selectedElementIds[0]) : null;
+    const handle = singleSelectedEl ? getHandleAtPos(singleSelectedEl, mousePos.x, mousePos.y) : null;
+
+    if (handle) {
+        state.dragAction = { type: handle, elements: [singleSelectedEl], startPos: mousePos, originalElements: [JSON.parse(JSON.stringify(singleSelectedEl))] };
+        return;
+    }
+    
+    const element = getElementAtPos(mousePos.x, mousePos.y);
+
+    if (e.shiftKey) {
+        if (element) {
+            const index = state.selectedElementIds.indexOf(element.id);
+            if (index > -1) state.selectedElementIds.splice(index, 1);
+            else state.selectedElementIds.push(element.id);
+        }
+    } else {
+        state.selectedElementIds = element ? [element.id] : [];
+        if (!element) {
+             state.marquee = { x1: mousePos.x, y1: mousePos.y, x2: mousePos.x, y2: mousePos.y };
+        }
+    }
+    
+    if (state.selectedElementIds.length > 0 && !state.marquee) {
+        const selected = state.elements.filter(el => state.selectedElementIds.includes(el.id));
+        state.dragAction = { type: 'move', elements: selected, startPos: mousePos, originalElements: JSON.parse(JSON.stringify(selected)) };
+    }
+}
+
+function handleCreationMouseDown(type, subType, mousePos) {
+    const newElement = createElement(type, subType, mousePos);
+    if (!newElement) return;
+    state.elements.push(newElement);
+    state.selectedElementIds = [newElement.id];
+    if (type !== 'wall') {
+        state.activeTool = 'select';
+        window.updateActiveTool();
+        saveState();
+    }
+}
+
+function handleInsertableMouseDown(type, mousePos) {
+    let closestWall = null;
+    let minDistance = Infinity;
+    state.elements.filter(el => el.type === 'wall').forEach(wall => {
+        const dist = distToSegment(mousePos, {x: wall.x1, y: wall.y1}, {x: wall.x2, y: wall.y2});
+        if (dist < minDistance && dist < 20 / state.zoom) {
+            minDistance = dist;
+            closestWall = wall;
+        }
+    });
+
+    if (closestWall) {
+        const wallDx = closestWall.x2 - closestWall.x1;
+        const wallDy = closestWall.y2 - closestWall.y1;
+        const t = ((mousePos.x - closestWall.x1) * wallDx + (mousePos.y - closestWall.y1) * wallDy) / (wallDx**2 + wallDy**2);
+        
+        const newInsertable = {
+            id: Date.now(),
+            type: type,
+            wallId: closestWall.id,
+            position: Math.max(0, Math.min(1, t)),
+            width: type === 'door' ? 60 : 80,
+        };
+        state.elements.push(newInsertable);
+        state.activeTool = 'select';
+        window.updateActiveTool();
+        state.selectedElementIds = [newInsertable.id];
+        saveState();
+    }
+}
 
 function onMouseDown(e) {
     state.isDrawing = true;
@@ -133,82 +184,28 @@ function onMouseDown(e) {
         return;
     }
     
-    if (state.activeTool === 'select') {
-        const singleSelectedEl = state.selectedElementIds.length === 1 ? state.elements.find(el => el.id === state.selectedElementIds[0]) : null;
-        const handleUnderMouse = singleSelectedEl ? getHandleAtPos(singleSelectedEl, mousePos.x, mousePos.y) : null;
-
-        if (handleUnderMouse) {
-            state.dragAction = { type: handleUnderMouse, elements: [singleSelectedEl], handle: handleUnderMouse, startPos: mousePos, originalElements: [JSON.parse(JSON.stringify(singleSelectedEl))] };
-            draw();
-            return;
-        }
-
-        const elementUnderMouse = getElementAtPos(mousePos.x, mousePos.y);
-        
-        if (e.shiftKey) {
-            if (elementUnderMouse) {
-                if (state.selectedElementIds.includes(elementUnderMouse.id)) {
-                    state.selectedElementIds = state.selectedElementIds.filter(id => id !== elementUnderMouse.id);
-                } else {
-                    state.selectedElementIds.push(elementUnderMouse.id);
-                }
-            }
-        } else {
-            if (elementUnderMouse) {
-                if (!state.selectedElementIds.includes(elementUnderMouse.id)) {
-                    state.selectedElementIds = [elementUnderMouse.id];
-                }
-            } else {
-                state.selectedElementIds = [];
-                state.marquee = { x1: mousePos.x, y1: mousePos.y, x2: mousePos.x, y2: mousePos.y };
-            }
-        }
-
-        // Prepara para mover APENAS se não estivermos fazendo um marquee
-        if (state.selectedElementIds.length > 0 && !state.marquee) {
-            const selectedElements = state.elements.filter(el => state.selectedElementIds.includes(el.id));
-            state.dragAction = { type: 'move', elements: selectedElements, startPos: mousePos, originalElements: JSON.parse(JSON.stringify(selectedElements)) };
-        }
-        
-    } else if (state.activeTool === 'wall') {
-        const wall = { id: Date.now(), type: 'wall', x1: mousePos.x, y1: mousePos.y, x2: mousePos.x, y2: mousePos.y };
-        state.elements.push(wall);
-        state.selectedElementIds = [wall.id];
-    } else if (state.activeTool === 'add_object') {
-        const object = { id: Date.now(), type: 'object', subType: state.objectToAdd, x: mousePos.x - 25, y: mousePos.y - 25, width: 50, height: 50, rotation: 0, name: '' };
-        state.elements.push(object);
-        state.activeTool = 'select'; state.selectedElementIds = [object.id];
-        updateActiveToolButton();
-        saveState();
-    } else if (state.activeTool === 'text') {
-        const text = { id: Date.now(), type: 'text', text: 'Novo Texto', x: mousePos.x, y: mousePos.y, fontSize: 16, fontFamily: 'Montserrat', rotation: 0 };
-        state.elements.push(text);
-        state.activeTool = 'select'; state.selectedElementIds = [text.id];
-        updateActiveToolButton();
-        saveState();
-    } else if (state.activeTool === 'shape') {
-        const defaultSize = 50;
-        const shape = { 
-            id: Date.now(), type: 'shape', subType: state.shapeToAdd, 
-            x: mousePos.x - defaultSize / 2, y: mousePos.y - defaultSize / 2, 
-            width: defaultSize, height: defaultSize, rotation: 0, 
-            strokeColor: '#333333', fillColor: 'transparent', name: ''
-        };
-        state.elements.push(shape);
-        state.activeTool = 'select';
-        state.selectedElementIds = [shape.id];
-        updateActiveToolButton();
-        saveState();
+    switch (state.activeTool) {
+        case 'select': handleSelectToolMouseDown(e, mousePos); break;
+        case 'wall': case 'text': handleCreationMouseDown(state.activeTool, null, mousePos); break;
+        case 'shape': case 'object': handleCreationMouseDown(state.activeTool, state.toolSubType, mousePos); break;
+        case 'door': case 'window': handleInsertableMouseDown(state.activeTool, mousePos); break;
     }
     
-    toggleControls(state.selectedElementIds.length === 1 ? state.elements.find(el => el.id === state.selectedElementIds[0]) : null);
+    const selectedEl = state.selectedElementIds.length === 1 ? state.elements.find(el => el.id === state.selectedElementIds[0]) : null;
+    toggleControls(selectedEl);
     draw();
 }
 
-// ... O resto do arquivo (onMouseMove, onMouseUp, etc.) permanece o mesmo da sua versão enviada anteriormente.
-// Vou incluí-lo aqui para garantir que você tenha o arquivo completo e correto.
-
 function onMouseMove(e) {
+    if (state.pan.active) {
+        const dx = e.clientX - state.pan.start.x; const dy = e.clientY - state.pan.start.y;
+        state.pan.x += dx; state.pan.y += dy;
+        state.pan.start = { x: e.clientX, y: e.clientY };
+        draw(); return;
+    }
+    
+    if (!state.isDrawing) return;
+    
     const mousePos = getEventPos(e);
 
     if (state.marquee) {
@@ -218,20 +215,28 @@ function onMouseMove(e) {
         return;
     }
 
-    if (state.pan.active) {
-        const dx = e.clientX - state.pan.start.x; 
-        const dy = e.clientY - state.pan.start.y;
-        state.pan.x += dx; 
-        state.pan.y += dy;
-        state.pan.start = { x: e.clientX, y: e.clientY };
-        draw(); 
-        return;
+    if (state.activeTool === 'wall' && state.selectedElementIds.length > 0) {
+        const wall = state.elements.find(el => el.id === state.selectedElementIds[0]);
+        if (wall) {
+            const dx = mousePos.x - wall.x1;
+            const dy = mousePos.y - wall.y1;
+            if (e.shiftKey) {
+                if (Math.abs(dx) > Math.abs(dy)) {
+                    wall.x2 = mousePos.x;
+                    wall.y2 = wall.y1;
+                } else {
+                    wall.x2 = wall.x1;
+                    wall.y2 = mousePos.y;
+                }
+            } else {
+                wall.x2 = mousePos.x;
+                wall.y2 = mousePos.y;
+            }
+            draw();
+            return;
+        }
     }
 
-    if (!state.isDrawing) {
-        return;
-    }
-    
     const dx = mousePos.x - state.startPoint.x;
     const dy = mousePos.y - state.startPoint.y;
 
@@ -248,70 +253,33 @@ function onMouseMove(e) {
                 }
             }
         });
-    } else if (state.dragAction.type === 'rotate') {
-        const el = state.dragAction.elements[0];
-        const orig = state.dragAction.originalElements[0];
-        let centerX = orig.x + orig.width / 2;
-        let centerY = orig.y + orig.height / 2;
-        const startAngle = Math.atan2(state.dragAction.startPos.y - centerY, state.dragAction.startPos.x - centerX);
-        const currentAngle = Math.atan2(mousePos.y - centerY, mousePos.x - centerX);
-        let rotation = orig.rotation + (currentAngle - startAngle) * 180 / Math.PI;
-
-        if (e.shiftKey) {
-            const snapAngle = 45;
-            rotation = Math.round(rotation / snapAngle) * snapAngle;
-        }
-        el.rotation = rotation;
     } else if (['top-left', 'top-right', 'bottom-left', 'bottom-right'].includes(state.dragAction.type)) {
         const el = state.dragAction.elements[0];
         const orig = state.dragAction.originalElements[0];
-        const handle = state.dragAction.type;
 
         const angle = -orig.rotation * Math.PI / 180;
         const rotatedDx = dx * Math.cos(angle) - dy * Math.sin(angle);
         const rotatedDy = dx * Math.sin(angle) + dy * Math.cos(angle);
         
-        let newWidth = orig.width;
-        let newHeight = orig.height;
-
-        if (handle.includes('right')) newWidth = Math.max(10, orig.width + rotatedDx);
-        if (handle.includes('left')) newWidth = Math.max(10, orig.width - rotatedDx);
-        if (handle.includes('bottom')) newHeight = Math.max(10, orig.height + rotatedDy);
-        if (handle.includes('top')) newHeight = Math.max(10, orig.height - rotatedDy);
-
-        if (el.subType === 'circle') {
-            newWidth = Math.max(newWidth, newHeight);
-            newHeight = newWidth;
-        }
+        let newWidth = orig.width, newHeight = orig.height;
+        if (state.dragAction.type.includes('right')) newWidth = Math.max(10, orig.width + rotatedDx);
+        if (state.dragAction.type.includes('left')) newWidth = Math.max(10, orig.width - rotatedDx);
+        if (state.dragAction.type.includes('bottom')) newHeight = Math.max(10, orig.height + rotatedDy);
+        if (state.dragAction.type.includes('top')) newHeight = Math.max(10, orig.height - rotatedDy);
         
-        el.width = newWidth;
-        el.height = newHeight;
+        el.width = newWidth; el.height = newHeight;
 
-        const dw = newWidth - orig.width;
-        const dh = newHeight - orig.height;
-
+        const dw = newWidth - orig.width; const dh = newHeight - orig.height;
         const finalAngle = orig.rotation * Math.PI / 180;
-        let offsetX = 0;
-        let offsetY = 0;
+        let offsetX = 0; let offsetY = 0;
         
-        if (handle.includes('left')) offsetX = dw / 2;
-        if (handle.includes('right')) offsetX = -dw / 2;
-        if (handle.includes('top')) offsetY = dh / 2;
-        if (handle.includes('bottom')) offsetY = -dh / 2;
+        if (state.dragAction.type.includes('left')) offsetX = dw / 2;
+        if (state.dragAction.type.includes('right')) offsetX = -dw / 2;
+        if (state.dragAction.type.includes('top')) offsetY = dh / 2;
+        if (state.dragAction.type.includes('bottom')) offsetY = -dh / 2;
 
         el.x = orig.x - (offsetX * Math.cos(finalAngle) - offsetY * Math.sin(finalAngle));
         el.y = orig.y - (offsetX * Math.sin(finalAngle) + offsetY * Math.cos(finalAngle));
-    } else if (state.activeTool === 'wall' && state.selectedElementIds.length > 0) {
-        const wall = state.elements.find(el => el.id === state.selectedElementIds[0]);
-        if (wall) {
-            const totalDx = Math.abs(dx);
-            const totalDy = Math.abs(dy);
-            if (e.shiftKey || totalDx > totalDy) {
-                wall.x2 = mousePos.x; wall.y2 = state.startPoint.y;
-            } else {
-                wall.x2 = state.startPoint.x; wall.y2 = mousePos.y;
-            }
-        }
     }
     draw();
 }
@@ -323,27 +291,27 @@ function onMouseUp() {
         const x2 = Math.max(state.marquee.x1, state.marquee.x2);
         const y2 = Math.max(state.marquee.y1, state.marquee.y2);
         
-        const selectedIds = [];
-        state.elements.forEach(el => {
-            const elCenterX = el.x + (el.width || 0) / 2;
-            const elCenterY = el.y + (el.height || 0) / 2;
-            if (elCenterX > x1 && elCenterX < x2 && elCenterY > y1 && elCenterY < y2) {
-                selectedIds.push(el.id);
-            }
-        });
-        state.selectedElementIds = selectedIds;
-        
+        state.selectedElementIds = state.elements
+            .filter(el => {
+                const cx = el.x + (el.width || 0) / 2;
+                const cy = el.y + (el.height || 0) / 2;
+                return cx > x1 && cx < x2 && cy > y1 && cy < y2;
+            })
+            .map(el => el.id);
+
         state.marquee = null;
-        toggleControls(state.selectedElementIds.length === 1 ? state.elements.find(el => el.id === state.selectedElementIds[0]) : null);
+        const selectedEl = state.selectedElementIds.length === 1 ? state.elements.find(el => el.id === state.selectedElementIds[0]) : null;
+        toggleControls(selectedEl);
     }
 
-    if (state.dragAction.type) {
+    if (state.isDrawing) {
+        if (state.activeTool === 'wall') {
+            state.activeTool = 'select';
+            window.updateActiveTool();
+        }
         saveState();
     }
-    if (state.activeTool === 'wall' || state.activeTool === 'shape') {
-        state.activeTool = 'select'; 
-        updateActiveToolButton();
-    }
+    
     state.isDrawing = false; 
     state.pan.active = false;
     state.dragAction = { type: null, elements: [], handle: null, startPos: null, originalElements: [] };
@@ -354,7 +322,7 @@ function onMouseUp() {
 function onDblClick(e) {
     const mousePos = getEventPos(e);
     const element = getElementAtPos(mousePos.x, mousePos.y);
-    if (element && element.type === 'text' && state.selectedElementIds.includes(element.id)) {
+    if (element?.type === 'text' && state.selectedElementIds.includes(element.id)) {
         editText(element);
     }
 }
@@ -362,16 +330,46 @@ function onDblClick(e) {
 function onKeyDown(e) {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
-    if (e.ctrlKey && e.key.toLowerCase() === 'z') { e.preventDefault(); window.undo(); }
-    if (e.ctrlKey && e.key.toLowerCase() === 'y') { e.preventDefault(); window.redo(); }
-    if (e.ctrlKey && e.key.toLowerCase() === 'd') { e.preventDefault(); duplicateSelected(); }
+    if (e.ctrlKey) {
+        if (e.key.toLowerCase() === 'z') { e.preventDefault(); window.undo(); }
+        if (e.key.toLowerCase() === 'y') { e.preventDefault(); window.redo(); }
+        if (e.key.toLowerCase() === 'd') { e.preventDefault(); duplicateSelected(); }
+        return;
+    }
+    
     if (e.key === 'Delete' || e.key === 'Backspace') { deleteSelected(); }
-    if (e.key.toLowerCase() === 'v') { state.activeTool = 'select'; updateActiveToolButton(); } 
-    if (e.key.toLowerCase() === 'w') { state.activeTool = 'wall'; updateActiveToolButton(); }
-    if (e.key.toLowerCase() === 't') { state.activeTool = 'text'; updateActiveToolButton(); }
+
+    const toolKey = Object.keys(TOOL_CONFIG).find(k => TOOL_CONFIG[k].key === e.key.toLowerCase());
+    if (toolKey) {
+        state.activeTool = toolKey;
+        window.updateActiveTool();
+    }
+
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        e.preventDefault();
+        const amount = e.shiftKey ? 10 : 1;
+        let dx = 0, dy = 0;
+        if (e.key === 'ArrowLeft') dx = -amount;
+        if (e.key === 'ArrowRight') dx = amount;
+        if (e.key === 'ArrowUp') dy = -amount;
+        if (e.key === 'ArrowDown') dy = amount;
+        
+        state.elements.forEach(el => {
+            if (state.selectedElementIds.includes(el.id)) {
+                if (el.type === 'wall') {
+                    el.x1 += dx; el.x2 += dx; el.y1 += dy; el.y2 += dy;
+                } else {
+                    el.x += dx; el.y += dy;
+                }
+            }
+        });
+        draw();
+        clearTimeout(window.nudgeTimeout);
+        window.nudgeTimeout = setTimeout(saveState, 500);
+    }
 }
 
-export function addEventListeners() {
+export function initializeCanvasEvents() {
     window.addEventListener('resize', setCanvasSize);
     dom.canvas.addEventListener('mousedown', onMouseDown);
     document.addEventListener('mousemove', onMouseMove);
