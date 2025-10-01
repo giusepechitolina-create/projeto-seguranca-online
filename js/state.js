@@ -21,7 +21,8 @@ export const state = {
         startPos: null, 
         originalElements: [] 
     },
-    marquee: null
+    marquee: null,
+    snapLines: [] // NOVO: Para desenhar as guias de alinhamento
 };
 
 export const images = {};

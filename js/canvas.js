@@ -1,8 +1,6 @@
 // js/canvas.js
 import { state, images, dom } from './state.js';
 
-// --- HELPERS DE DESENHO E LÓGICA ---
-
 function getWallPolygon(el) {
     const { x1, y1, x2, y2, thickness } = el;
     const halfThick = thickness / 2;
@@ -37,17 +35,12 @@ export function getInsertableHandles(el, wall) {
     return handles;
 }
 
-
-// --- RENDERERS DE SÍMBOLOS E SELEÇÃO ---
-
 function drawDoorSymbol(ctx, door, wall) {
     const flipY = door.flip || 1;
     const swingX = door.swing || 1;
-
     ctx.strokeStyle = '#666';
     ctx.lineWidth = 1.5;
     ctx.lineCap = 'round';
-    
     ctx.save();
     ctx.lineWidth = 3;
     ctx.beginPath();
@@ -55,15 +48,12 @@ function drawDoorSymbol(ctx, door, wall) {
     ctx.lineTo(0, wall.thickness / 2);
     ctx.stroke();
     ctx.restore();
-
     const pivotY = (wall.thickness / 2) * flipY;
     const pivotX = 0;
-
     ctx.beginPath();
     ctx.moveTo(pivotX, pivotY);
     ctx.lineTo(pivotX + (door.width * swingX), pivotY);
     ctx.stroke();
-
     ctx.beginPath();
     ctx.setLineDash([3, 3]);
     if (swingX > 0) {
@@ -80,10 +70,8 @@ function drawWindowSymbol(ctx, win, wall) {
     ctx.fillStyle = 'rgba(173, 216, 230, 0.7)';
     ctx.strokeStyle = '#888';
     ctx.lineWidth = 1;
-    
     ctx.fillRect(-halfWidth, -wall.thickness / 2, win.width, wall.thickness);
     ctx.strokeRect(-halfWidth, -wall.thickness / 2, win.width, wall.thickness);
-    
     ctx.beginPath();
     ctx.moveTo(-halfWidth, 0);
     ctx.lineTo(halfWidth, 0);
@@ -93,24 +81,19 @@ function drawWindowSymbol(ctx, win, wall) {
 function drawInsertableSelection(el, wall) {
     const { ctx } = dom;
     ctx.save();
-    
     const wallDx = wall.x2 - wall.x1;
     const wallDy = wall.y2 - wall.y1;
     const cx = wall.x1 + wallDx * el.position;
     const cy = wall.y1 + wallDy * el.position;
-
     ctx.translate(cx, cy);
     ctx.rotate(Math.atan2(wallDy, wallDx));
-
     const handles = getInsertableHandles(el, wall);
     const handleSize = 8 / state.zoom;
-    
     ctx.strokeStyle = '#8bc53f';
     ctx.lineWidth = 2 / state.zoom;
     ctx.setLineDash([4 / state.zoom, 2 / state.zoom]);
     ctx.strokeRect(-el.width / 2, -wall.thickness / 2, el.width, wall.thickness);
     ctx.setLineDash([]);
-    
     Object.values(handles).forEach(h => {
         ctx.fillStyle = h.cursor === 'pointer' ? '#f59e0b' : '#8bc53f';
         ctx.strokeStyle = 'white';
@@ -120,24 +103,31 @@ function drawInsertableSelection(el, wall) {
         ctx.fill();
         ctx.stroke();
     });
-
     ctx.restore();
 }
 
-// --- RENDERERS PRINCIPAIS DE ELEMENTOS ---
-
 const elementRenderers = {
     wall: (ctx, el) => {
+        const { x1, y1, x2, y2, thickness } = el;
+        const halfThick = thickness / 2;
+        ctx.fillStyle = '#EAEAEA';
+        ctx.strokeStyle = '#888';
+        ctx.lineWidth = 1;
+
+        ctx.beginPath();
         const points = getWallPolygon(el);
         if (points.length < 4) return;
-        ctx.beginPath();
         ctx.moveTo(points[0].x, points[0].y);
         for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y);
         ctx.closePath();
-        ctx.fillStyle = '#EAEAEA';
+        ctx.arc(x1, y1, halfThick, 0, 2 * Math.PI);
+        ctx.arc(x2, y2, halfThick, 0, 2 * Math.PI);
         ctx.fill();
-        ctx.strokeStyle = '#888';
-        ctx.lineWidth = 1;
+
+        ctx.beginPath();
+        ctx.arc(x1, y1, halfThick, Math.atan2(y2-y1, x2-x1) - Math.PI/2, Math.atan2(y2-y1, x2-x1) + Math.PI/2);
+        ctx.arc(x2, y2, halfThick, Math.atan2(y1-y2, x1-x2) - Math.PI/2, Math.atan2(y1-y2, x1-x2) + Math.PI/2);
+        ctx.closePath();
         ctx.stroke();
     },
     object: (ctx, el) => {
@@ -166,7 +156,6 @@ function renderElement(ctx, el) {
     ctx.save();
     const renderer = elementRenderers[el.type];
     if (!renderer) { ctx.restore(); return; }
-
     if (el.type === 'object' || el.type === 'shape') {
         ctx.translate(el.x + el.width / 2, el.y + el.height / 2);
         ctx.rotate(el.rotation * Math.PI / 180);
@@ -174,9 +163,7 @@ function renderElement(ctx, el) {
         ctx.translate(el.x, el.y);
         ctx.rotate(el.rotation * Math.PI / 180);
     }
-    
     renderer(ctx, el);
-
     if (el.type === 'shape' && el.name) {
         ctx.font = `bold ${Math.min(el.width, el.height) / 8}px Montserrat`;
         ctx.fillStyle = '#333';
@@ -187,7 +174,21 @@ function renderElement(ctx, el) {
     ctx.restore();
 }
 
-// --- FUNÇÕES DE DESENHO PRINCIPAIS E DE SELEÇÃO ---
+function drawSnapLines() {
+    if (!state.snapLines || state.snapLines.length === 0) return;
+    const { ctx } = dom;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255, 0, 255, 0.8)';
+    ctx.lineWidth = 1 / state.zoom;
+    ctx.setLineDash([4 / state.zoom, 4 / state.zoom]);
+    state.snapLines.forEach(line => {
+        ctx.beginPath();
+        ctx.moveTo(line.x1, line.y1);
+        ctx.lineTo(line.x2, line.y2);
+        ctx.stroke();
+    });
+    ctx.restore();
+}
 
 export function draw() {
     const { ctx, canvas } = dom;
@@ -197,6 +198,7 @@ export function draw() {
     ctx.translate(state.pan.x, state.pan.y);
     ctx.scale(state.zoom, state.zoom);
     drawScene(ctx, state.elements);
+    drawSnapLines();
     drawSelection();
     if (state.marquee) drawMarquee();
     ctx.restore();
@@ -209,12 +211,10 @@ export function drawScene(targetCtx, elementsToDraw) {
     const others = elementsToDraw.filter(el => !['shape', 'wall', 'door', 'window'].includes(el.type));
 
     rooms.forEach(room => renderElement(targetCtx, room));
-
     walls.forEach(wall => {
         const wallInsertables = insertables.filter(i => i.wallId === wall.id).sort((a, b) => a.position - b.position);
         const wallLength = Math.sqrt((wall.x2 - wall.x1)**2 + (wall.y2 - wall.y1)**2);
         if (wallLength === 0) { renderElement(targetCtx, wall); return; }
-
         let lastPos = 0;
         wallInsertables.forEach(insertable => {
             const halfWidthNormalized = (insertable.width / 2) / wallLength;
@@ -230,7 +230,6 @@ export function drawScene(targetCtx, elementsToDraw) {
             renderElement(targetCtx, segment);
         }
     });
-    
     insertables.forEach(insertable => {
         const parentWall = walls.find(w => w.id === insertable.wallId);
         if (parentWall) {
@@ -246,14 +245,12 @@ export function drawScene(targetCtx, elementsToDraw) {
             targetCtx.restore();
         }
     });
-
     others.forEach(obj => renderElement(targetCtx, obj));
 }
 
 function drawSelection() {
     const selectedElements = state.elements.filter(el => state.selectedElementIds.includes(el.id));
     if (selectedElements.length === 0) return;
-
     if (selectedElements.length === 1) {
         const el = selectedElements[0];
         if (el.type === 'wall') {
@@ -321,21 +318,10 @@ function drawSelectionBox(el) {
 
 function drawWallSelection(el) {
     const { ctx } = dom;
-    const poly = getWallPolygon(el);
-    if(poly.length < 4) return;
-    ctx.save();
-    ctx.beginPath();
-    ctx.moveTo(poly[0].x, poly[0].y);
-    for(let i=1; i<poly.length; i++) ctx.lineTo(poly[i].x, poly[i].y);
-    ctx.closePath();
-    ctx.strokeStyle = 'rgba(139, 197, 63, 0.7)';
-    ctx.lineWidth = 4 / state.zoom;
-    ctx.stroke();
     const handleSize = 10 / state.zoom;
     ctx.fillStyle = '#8bc53f';
     ctx.fillRect(el.x1 - handleSize / 2, el.y1 - handleSize / 2, handleSize, handleSize);
     ctx.fillRect(el.x2 - handleSize / 2, el.y2 - handleSize / 2, handleSize, handleSize);
-    ctx.restore();
 }
 
 export function getResizeHandles(el) {

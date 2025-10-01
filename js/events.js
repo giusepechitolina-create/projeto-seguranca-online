@@ -6,6 +6,34 @@ import { editText, deleteSelected, duplicateSelected } from './actions.js';
 import { toggleControls } from './ui.js';
 import { TOOL_CONFIG } from './config.js';
 
+const snapThreshold = 10;
+
+function findSnapPoints(pos, excludeId) {
+    const snapLines = [];
+    let snappedPos = { ...pos };
+    let snappedX = false, snappedY = false;
+    const threshold = snapThreshold / state.zoom;
+
+    state.elements.forEach(el => {
+        if (el.id === excludeId || el.type !== 'wall') return;
+        
+        [ { x: el.x1, y: el.y1 }, { x: el.x2, y: el.y2 } ].forEach(p => {
+            if (!snappedX && Math.abs(pos.x - p.x) < threshold) {
+                snappedPos.x = p.x;
+                snappedX = true;
+                snapLines.push({ x1: p.x, y1: p.y - 10000, x2: p.x, y2: p.y + 10000 });
+            }
+            if (!snappedY && Math.abs(pos.y - p.y) < threshold) {
+                snappedPos.y = p.y;
+                snappedY = true;
+                snapLines.push({ x1: p.x - 10000, y1: p.y, x2: p.x + 10000, y2: p.y });
+            }
+        });
+    });
+
+    return { snappedPos, snapLines };
+}
+
 function getEventPos(e) {
     const rect = dom.canvas.getBoundingClientRect();
     const clientX = e.touches?.[0]?.clientX ?? e.clientX;
@@ -36,7 +64,7 @@ function getInsertableAtPos(x, y) {
             const wallDy = wall.y2 - wall.y1;
             const cx = wall.x1 + wallDx * el.position;
             const cy = wall.y1 + wallDy * el.position;
-            if (Math.sqrt((x-cx)**2 + (y-cy)**2) < el.width / 2) return el;
+            if (Math.sqrt((x-cx)**2 + (y-cy)**2) < Math.max(el.width / 2, wall.thickness)) return el;
         }
     }
     return null;
@@ -74,7 +102,7 @@ function getElementAtPos(x, y) {
 }
 
 function getHandleAtPos(el, x, y) {
-    const handleHitboxSize = 10 / state.zoom;
+    const handleHitboxSize = 12 / state.zoom;
     
     if (['door', 'window'].includes(el.type)) {
         const wall = state.elements.find(w => w.id === el.wallId);
@@ -92,18 +120,18 @@ function getHandleAtPos(el, x, y) {
         
         const handles = getInsertableHandles(el, wall);
         for (const [key, handle] of Object.entries(handles)) {
-            if (Math.sqrt((rotatedX - handle.x)**2 + (rotatedY - handle.y)**2) < handleHitboxSize) {
+            if (Math.sqrt((rotatedX - handle.x)**2 + (rotatedY - handle.y)**2) < handleHitboxSize / 2) {
                 return key;
             }
         }
     } else if (el.type === 'wall') {
         if (Math.sqrt((x - el.x1)**2 + (y - el.y1)**2) < handleHitboxSize) return 'start';
         if (Math.sqrt((x - el.x2)**2 + (y - el.y2)**2) < handleHitboxSize) return 'end';
-    } else {
-        let centerX = el.type === 'text' ? el.x : el.x + el.width / 2;
-        let centerY = el.type === 'text' ? el.y : el.y + el.height / 2;
-        let boxHeight = el.type === 'text' ? el.fontSize : el.height;
-        let boxWidth = (el.type === 'text') ? dom.ctx.measureText(el.text).width : el.width;
+    } else if (el.type !== 'text') {
+        let centerX = el.x + el.width / 2;
+        let centerY = el.y + el.height / 2;
+        let boxHeight = el.height;
+        let boxWidth = el.width;
         const dx = x - centerX;
         const dy = y - centerY;
         const angle = -el.rotation * Math.PI / 180;
@@ -111,11 +139,9 @@ function getHandleAtPos(el, x, y) {
         const rotatedY = dx * Math.sin(angle) + dy * Math.cos(angle);
         const rotHandleY = -boxHeight / 2 - 20/state.zoom;
         if (Math.sqrt((rotatedX - (boxWidth/2))**2 + (rotatedY - rotHandleY)**2) < handleHitboxSize) return 'rotate';
-        if (el.type !== 'text') {
-            const handles = getResizeHandles(el);
-            for (const [key, handle] of Object.entries(handles)) {
-                if (Math.abs(rotatedX - handle.x) < handleHitboxSize / 2 && Math.abs(rotatedY - handle.y) < handleHitboxSize / 2) return key;
-            }
+        const handles = getResizeHandles(el);
+        for (const [key, handle] of Object.entries(handles)) {
+            if (Math.abs(rotatedX - handle.x) < handleHitboxSize / 2 && Math.abs(rotatedY - handle.y) < handleHitboxSize / 2) return key;
         }
     }
     return null;
@@ -173,12 +199,15 @@ function handleSelectToolMouseDown(e, mousePos) {
     
     if (state.selectedElementIds.length > 0 && !state.marquee) {
         const selected = state.elements.filter(el => state.selectedElementIds.includes(el.id));
-        state.dragAction = { type: 'move', elements: selected, startPos: mousePos, originalElements: JSON.parse(JSON.stringify(selected)) };
+        const type = (['door', 'window'].includes(selected[0].type)) ? 'move-on-wall' : 'move';
+        state.dragAction = { type: type, elements: selected, startPos: mousePos, originalElements: JSON.parse(JSON.stringify(selected)) };
     }
 }
 
 function handleCreationMouseDown(type, subType, mousePos) {
-    const newElement = createElement(type, subType, mousePos);
+    const { snappedPos, snapLines } = findSnapPoints(mousePos);
+    state.snapLines = snapLines;
+    const newElement = createElement(type, subType, snappedPos);
     if (!newElement) return;
     state.elements.push(newElement);
     state.selectedElementIds = [newElement.id];
@@ -245,28 +274,58 @@ function onMouseMove(e) {
     if (!state.isDrawing) return;
     
     const mousePos = getEventPos(e);
+    let currentPos = mousePos;
+    state.snapLines = [];
+
+    if (state.dragAction.type === 'start' || state.dragAction.type === 'end' || (state.activeTool === 'wall' && state.selectedElementIds.length > 0)) {
+        const excludeId = state.selectedElementIds[0] || null;
+        const { snappedPos, snapLines } = findSnapPoints(mousePos, excludeId);
+        currentPos = snappedPos;
+        state.snapLines = snapLines;
+    }
 
     if (state.marquee) {
-        state.marquee.x2 = mousePos.x; state.marquee.y2 = mousePos.y;
-        draw(); return;
-    }
-
-    if (state.activeTool === 'wall' && state.selectedElementIds.length > 0) {
+        state.marquee.x2 = currentPos.x; state.marquee.y2 = currentPos.y;
+    } else if (state.activeTool === 'wall' && state.selectedElementIds.length > 0) {
         const wall = state.elements.find(el => el.id === state.selectedElementIds[0]);
         if (wall) {
-            const dx = mousePos.x - wall.x1;
-            const dy = mousePos.y - wall.y1;
-            if (e.shiftKey) { // ORTO MODE
-                if (Math.abs(dx) > Math.abs(dy)) { wall.x2 = mousePos.x; wall.y2 = wall.y1; } 
-                else { wall.x2 = wall.x1; wall.y2 = mousePos.y; }
+            const { snappedPos: startSnapped } = findSnapPoints({x: wall.x1, y: wall.y1}, wall.id);
+            wall.x1 = startSnapped.x;
+            wall.y1 = startSnapped.y;
+            
+            const dx = currentPos.x - wall.x1;
+            const dy = currentPos.y - wall.y1;
+            if (e.shiftKey) {
+                if (Math.abs(dx) > Math.abs(dy)) { wall.x2 = currentPos.x; wall.y2 = wall.y1; } 
+                else { wall.x2 = wall.x1; wall.y2 = currentPos.y; }
             } else {
-                wall.x2 = mousePos.x; wall.y2 = mousePos.y;
+                wall.x2 = currentPos.x; wall.y2 = currentPos.y;
             }
-            draw(); return;
         }
-    }
-
-    if (['resize-start', 'resize-end'].includes(state.dragAction.type)) {
+    } else if (state.dragAction.type === 'start' || state.dragAction.type === 'end') {
+        const wall = state.dragAction.elements[0];
+        if (e.shiftKey) {
+            const otherEnd = state.dragAction.type === 'start' ? {x: wall.x2, y: wall.y2} : {x: wall.x1, y: wall.y1};
+            const dx = currentPos.x - otherEnd.x;
+            const dy = currentPos.y - otherEnd.y;
+            if (Math.abs(dx) > Math.abs(dy)) { currentPos.y = otherEnd.y; }
+            else { currentPos.x = otherEnd.x; }
+        }
+        if (state.dragAction.type === 'start') { wall.x1 = currentPos.x; wall.y1 = currentPos.y; }
+        else { wall.x2 = currentPos.x; wall.y2 = currentPos.y; }
+    } else if (state.dragAction.type === 'move-on-wall') {
+        const el = state.dragAction.elements[0];
+        const wall = state.elements.find(w => w.id === el.wallId);
+        if (wall) {
+            const wallDx = wall.x2 - wall.x1;
+            const wallDy = wall.y2 - wall.y1;
+            const wallLengthSq = wallDx**2 + wallDy**2;
+            if (wallLengthSq > 0) {
+                const t = ((mousePos.x - wall.x1) * wallDx + (mousePos.y - wall.y1) * wallDy) / wallLengthSq;
+                el.position = Math.max(0, Math.min(1, t));
+            }
+        }
+    } else if (['resize-start', 'resize-end'].includes(state.dragAction.type)) {
         const el = state.dragAction.elements[0];
         const orig = state.dragAction.originalElements[0];
         const wall = state.elements.find(w => w.id === el.wallId);
@@ -279,53 +338,37 @@ function onMouseMove(e) {
             const projectedD = dx * Math.cos(wallAngle) + dy * Math.sin(wallAngle);
             const resizeAmount = state.dragAction.type === 'resize-start' ? -projectedD : projectedD;
             el.width = Math.max(20, orig.width + resizeAmount * 2);
-            draw();
-            return;
         }
-    }
-    
-    const dx = mousePos.x - state.startPoint.x;
-    const dy = mousePos.y - state.startPoint.y;
-
-    if (state.dragAction.type === 'move') {
-        state.dragAction.originalElements.forEach((origEl) => {
-            const currentEl = state.elements.find(el => el.id === origEl.id);
+    } else if (state.dragAction.type === 'move') {
+        const dx = mousePos.x - state.startPoint.x;
+        const dy = mousePos.y - state.startPoint.y;
+        state.dragAction.originalElements.forEach((origEl, index) => {
+            const currentEl = state.dragAction.elements[index];
             if (currentEl) {
                 if (currentEl.type === 'wall') {
                     currentEl.x1 = origEl.x1 + dx; currentEl.y1 = origEl.y1 + dy;
                     currentEl.x2 = origEl.x2 + dx; currentEl.y2 = origEl.y2 + dy;
-                } else if (!['door', 'window'].includes(currentEl.type)) {
-                    currentEl.x = origEl.x + dx;
-                    currentEl.y = origEl.y + dy;
+                } else {
+                    currentEl.x = origEl.x + dx; currentEl.y = origEl.y + dy;
                 }
             }
         });
-    } else if (['top-left', 'top-right', 'bottom-left', 'bottom-right'].includes(state.dragAction.type)) {
-        const el = state.dragAction.elements[0];
-        const orig = state.dragAction.originalElements[0];
-        const angle = -orig.rotation * Math.PI / 180;
-        const rotatedDx = dx * Math.cos(angle) - dy * Math.sin(angle);
-        const rotatedDy = dx * Math.sin(angle) + dy * Math.cos(angle);
-        let newWidth = orig.width, newHeight = orig.height;
-        if (state.dragAction.type.includes('right')) newWidth = Math.max(10, orig.width + rotatedDx);
-        if (state.dragAction.type.includes('left')) newWidth = Math.max(10, orig.width - rotatedDx);
-        if (state.dragAction.type.includes('bottom')) newHeight = Math.max(10, orig.height + rotatedDy);
-        if (state.dragAction.type.includes('top')) newHeight = Math.max(10, orig.height - rotatedDy);
-        el.width = newWidth; el.height = newHeight;
-        const dw = newWidth - orig.width; const dh = newHeight - orig.height;
-        const finalAngle = orig.rotation * Math.PI / 180;
-        let offsetX = 0; let offsetY = 0;
-        if (state.dragAction.type.includes('left')) offsetX = dw / 2;
-        if (state.dragAction.type.includes('right')) offsetX = -dw / 2;
-        if (state.dragAction.type.includes('top')) offsetY = dh / 2;
-        if (state.dragAction.type.includes('bottom')) offsetY = -dh / 2;
-        el.x = orig.x - (offsetX * Math.cos(finalAngle) - offsetY * Math.sin(finalAngle));
-        el.y = orig.y - (offsetX * Math.sin(finalAngle) + offsetY * Math.cos(finalAngle));
     }
+    
     draw();
 }
 
 function onMouseUp() {
+    if (state.isDrawing) {
+        saveState();
+    }
+    
+    state.isDrawing = false; 
+    state.pan.active = false;
+    state.dragAction = { type: null, elements: [], handle: null, startPos: null, originalElements: [] };
+    state.snapLines = [];
+    dom.canvas.style.cursor = 'default';
+    
     if (state.marquee) {
         const x1 = Math.min(state.marquee.x1, state.marquee.x2);
         const y1 = Math.min(state.marquee.y1, state.marquee.y2);
@@ -334,32 +377,15 @@ function onMouseUp() {
         
         state.selectedElementIds = state.elements
             .filter(el => {
-                if (el.type === 'wall' || el.type === 'door' || el.type === 'window') return false;
+                if (['wall', 'door', 'window'].includes(el.type)) return false;
                 const cx = el.x + (el.width || 0) / 2;
                 const cy = el.y + (el.height || 0) / 2;
                 return cx > x1 && cx < x2 && cy > y1 && cy < y2;
             })
             .map(el => el.id);
-
         state.marquee = null;
-        const selectedEl = state.selectedElementIds.length === 1 ? state.elements.find(el => el.id === state.selectedElementIds[0]) : null;
-        toggleControls(selectedEl);
-    }
-
-    if (state.isDrawing) {
-        if (state.activeTool === 'wall' && state.dragAction.type) {
-            state.activeTool = 'select';
-            window.updateActiveTool();
-        }
-        if (state.dragAction.type || (state.activeTool === 'wall' && state.isDrawing)) {
-             saveState();
-        }
     }
     
-    state.isDrawing = false; 
-    state.pan.active = false;
-    state.dragAction = { type: null, elements: [], handle: null, startPos: null, originalElements: [] };
-    dom.canvas.style.cursor = 'default';
     draw();
 }
 
@@ -373,22 +399,18 @@ function onDblClick(e) {
 
 function onKeyDown(e) {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-
     if (e.ctrlKey) {
         if (e.key.toLowerCase() === 'z') { e.preventDefault(); window.undo(); }
         if (e.key.toLowerCase() === 'y') { e.preventDefault(); window.redo(); }
         if (e.key.toLowerCase() === 'd' && state.activeTool !== 'door') { e.preventDefault(); duplicateSelected(); }
         return;
     }
-    
     if (e.key === 'Delete' || e.key === 'Backspace') { deleteSelected(); }
-
     const toolKey = Object.keys(TOOL_CONFIG).find(k => TOOL_CONFIG[k].key === e.key.toLowerCase());
     if (toolKey) {
         state.activeTool = toolKey;
         window.updateActiveTool();
     }
-
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
         e.preventDefault();
         const amount = e.shiftKey ? 10 : 1;
@@ -397,7 +419,6 @@ function onKeyDown(e) {
         if (e.key === 'ArrowRight') dx = amount;
         if (e.key === 'ArrowUp') dy = -amount;
         if (e.key === 'ArrowDown') dy = amount;
-        
         state.elements.forEach(el => {
             if (state.selectedElementIds.includes(el.id)) {
                 if (el.type === 'wall') {

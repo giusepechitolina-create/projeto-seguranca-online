@@ -6,7 +6,15 @@ import { toggleControls } from './ui.js';
 
 export function deleteSelected() {
     if (state.selectedElementIds.length > 0) {
-        state.elements = state.elements.filter(el => !state.selectedElementIds.includes(el.id));
+        const insertablesToDelete = state.elements.filter(el => state.selectedElementIds.includes(el.id) && el.type === 'wall');
+        const wallIdsToDelete = insertablesToDelete.map(wall => wall.id);
+
+        state.elements = state.elements.filter(el => {
+            if (state.selectedElementIds.includes(el.id)) return false; // Remove o elemento selecionado
+            if (['door', 'window'].includes(el.type) && wallIdsToDelete.includes(el.wallId)) return false; // Remove portas/janelas da parede apagada
+            return true;
+        });
+
         state.selectedElementIds = [];
         toggleControls(null);
         saveState();
@@ -16,13 +24,25 @@ export function deleteSelected() {
 
 export function duplicateSelected() {
     const selectedElements = state.elements.filter(el => state.selectedElementIds.includes(el.id));
-    if (selectedElements.length > 0 && selectedElements.every(el => !['wall', 'door', 'window'].includes(el.type))) {
+    // Impede a duplicação de portas/janelas para evitar lógica complexa de re-anexação
+    if (selectedElements.length > 0 && selectedElements.every(el => !['door', 'window'].includes(el.type))) {
         const newIds = [];
+        const offset = 20 / state.zoom;
+
         selectedElements.forEach(el => {
             const newElement = JSON.parse(JSON.stringify(el));
             newElement.id = Date.now() + Math.random();
-            newElement.x += 20;
-            newElement.y += 20;
+            
+            if (el.type === 'wall') {
+                newElement.x1 += offset;
+                newElement.y1 += offset;
+                newElement.x2 += offset;
+                newElement.y2 += offset;
+            } else {
+                newElement.x += offset;
+                newElement.y += offset;
+            }
+
             state.elements.push(newElement);
             newIds.push(newElement.id);
         });
