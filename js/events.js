@@ -101,9 +101,44 @@ function getElementAtPos(x, y) {
     return null;
 }
 
+function getVisionHandleAtPos(el, x, y) {
+    if (!el.vision) return null;
+    const handleHitboxSize = 12 / state.zoom;
+    const { range, angle } = el.vision;
+    
+    const centerX = el.x + el.width/2;
+    const centerY = el.y + el.height/2;
+    const dx = x - centerX;
+    const dy = y - centerY;
+    const mainAngle = -el.rotation * Math.PI / 180;
+    const rotatedX = dx * Math.cos(mainAngle) - dy * Math.sin(mainAngle);
+    const rotatedY = dx * Math.sin(mainAngle) + dy * Math.cos(mainAngle);
+    
+    // Check range handle
+    if (Math.abs(rotatedX - range) < handleHitboxSize / 2 && Math.abs(rotatedY) < handleHitboxSize / 2) {
+        return 'vision-range';
+    }
+
+    // Check angle handles
+    const angleRad = angle / 2 * (Math.PI / 180);
+    const angleHandle1 = { x: range * Math.cos(angleRad), y: range * Math.sin(angleRad) };
+    if (Math.sqrt((rotatedX - angleHandle1.x)**2 + (rotatedY - angleHandle1.y)**2) < handleHitboxSize / 2) {
+        return 'vision-angle';
+    }
+    const angleHandle2 = { x: range * Math.cos(-angleRad), y: range * Math.sin(-angleRad) };
+    if (Math.sqrt((rotatedX - angleHandle2.x)**2 + (rotatedY - angleHandle2.y)**2) < handleHitboxSize / 2) {
+        return 'vision-angle';
+    }
+    
+    return null;
+}
+
 function getHandleAtPos(el, x, y) {
     const handleHitboxSize = 12 / state.zoom;
     
+    const visionHandle = getVisionHandleAtPos(el, x, y);
+    if (visionHandle) return visionHandle;
+
     if (['door', 'window'].includes(el.type)) {
         const wall = state.elements.find(w => w.id === el.wallId);
         if (!wall) return null;
@@ -130,15 +165,13 @@ function getHandleAtPos(el, x, y) {
     } else if (el.type !== 'text') {
         let centerX = el.x + el.width / 2;
         let centerY = el.y + el.height / 2;
-        let boxHeight = el.height;
-        let boxWidth = el.width;
         const dx = x - centerX;
         const dy = y - centerY;
         const angle = -el.rotation * Math.PI / 180;
         const rotatedX = dx * Math.cos(angle) - dy * Math.sin(angle);
         const rotatedY = dx * Math.sin(angle) + dy * Math.cos(angle);
-        const rotHandleY = -boxHeight / 2 - 20/state.zoom;
-        if (Math.sqrt((rotatedX - (boxWidth/2))**2 + (rotatedY - rotHandleY)**2) < handleHitboxSize) return 'rotate';
+        const rotHandleY = -el.height / 2 - 20/state.zoom;
+        if (Math.sqrt((rotatedX - 0)**2 + (rotatedY - rotHandleY)**2) < handleHitboxSize) return 'rotate';
         const handles = getResizeHandles(el);
         for (const [key, handle] of Object.entries(handles)) {
             if (Math.abs(rotatedX - handle.x) < handleHitboxSize / 2 && Math.abs(rotatedY - handle.y) < handleHitboxSize / 2) return key;
@@ -162,7 +195,12 @@ function createElement(type, subType, pos) {
         case 'wall': return { id: Date.now(), type: 'wall', x1: pos.x, y1: pos.y, x2: pos.x, y2: pos.y, thickness: 10 };
         case 'text': return { ...commonProps, type: 'text', text: 'Novo Texto', fontSize: 16, fontFamily: 'Montserrat' };
         case 'shape': return { ...commonProps, type: 'shape', subType, width: 200, height: 200, strokeColor: 'transparent', fillColor: 'rgba(200, 200, 200, 0.5)' };
-        case 'object': return { ...commonProps, type: 'object', subType, width: 50, height: 50 };
+        case 'object':
+            const object = { ...commonProps, type: 'object', subType, width: 40, height: 40 };
+            if (subType === 'camera' || subType === 'motion_sensor') {
+                object.vision = { range: 150, angle: 90 };
+            }
+            return object;
         default: return null;
     }
 }
@@ -339,6 +377,44 @@ function onMouseMove(e) {
             const resizeAmount = state.dragAction.type === 'resize-start' ? -projectedD : projectedD;
             el.width = Math.max(20, orig.width + resizeAmount * 2);
         }
+    } else if (state.dragAction.type === 'vision-range') {
+        const el = state.dragAction.elements[0];
+        const centerX = el.x + el.width/2;
+        const centerY = el.y + el.height/2;
+        const dx = mousePos.x - centerX;
+        const dy = mousePos.y - centerY;
+        el.vision.range = Math.max(20, Math.sqrt(dx**2 + dy**2));
+    } else if (state.dragAction.type === 'vision-angle') {
+        const el = state.dragAction.elements[0];
+        const centerX = el.x + el.width/2;
+        const centerY = el.y + el.height/2;
+        const dx = mousePos.x - centerX;
+        const dy = mousePos.y - centerY;
+        const angleInRad = Math.atan2(dy, dx) - (el.rotation * Math.PI / 180);
+        el.vision.angle = Math.max(10, Math.abs(angleInRad * 180 / Math.PI) * 2);
+    } else if (['top-left', 'top-right', 'bottom-left', 'bottom-right'].includes(state.dragAction.type)) {
+        const el = state.dragAction.elements[0];
+        const orig = state.dragAction.originalElements[0];
+        const angle = -orig.rotation * Math.PI / 180;
+        const dx = mousePos.x - state.startPoint.x;
+        const dy = mousePos.y - state.startPoint.y;
+        const rotatedDx = dx * Math.cos(angle) - dy * Math.sin(angle);
+        const rotatedDy = dx * Math.sin(angle) + dy * Math.cos(angle);
+        let newWidth = orig.width, newHeight = orig.height;
+        if (state.dragAction.type.includes('right')) newWidth = Math.max(10, orig.width + rotatedDx);
+        if (state.dragAction.type.includes('left')) newWidth = Math.max(10, orig.width - rotatedDx);
+        if (state.dragAction.type.includes('bottom')) newHeight = Math.max(10, orig.height + rotatedDy);
+        if (state.dragAction.type.includes('top')) newHeight = Math.max(10, orig.height - rotatedDy);
+        el.width = newWidth; el.height = newHeight;
+        const dw = newWidth - orig.width; const dh = newHeight - orig.height;
+        const finalAngle = orig.rotation * Math.PI / 180;
+        let offsetX = 0; let offsetY = 0;
+        if (state.dragAction.type.includes('left')) offsetX = dw / 2;
+        if (state.dragAction.type.includes('right')) offsetX = -dw / 2;
+        if (state.dragAction.type.includes('top')) offsetY = dh / 2;
+        if (state.dragAction.type.includes('bottom')) offsetY = -dh / 2;
+        el.x = orig.x - (offsetX * Math.cos(finalAngle) - offsetY * Math.sin(finalAngle));
+        el.y = orig.y - (offsetX * Math.sin(finalAngle) + offsetY * Math.cos(finalAngle));
     } else if (state.dragAction.type === 'move') {
         const dx = mousePos.x - state.startPoint.x;
         const dy = mousePos.y - state.startPoint.y;

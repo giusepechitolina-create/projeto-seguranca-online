@@ -22,7 +22,7 @@ export const state = {
         originalElements: [] 
     },
     marquee: null,
-    snapLines: [] // NOVO: Para desenhar as guias de alinhamento
+    snapLines: []
 };
 
 export const images = {};
@@ -38,7 +38,7 @@ export function initializeDOMReferences() {
     Object.entries(EQUIPMENT_CONFIG).forEach(([key, config]) => {
         objectTitles[key] = config.title;
         const img = new Image();
-        const svgString = config.icon.replace(/class=".*?"/g, '');
+        const svgString = `<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 24 24" fill="none" stroke="#1a2e4f" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${config.icon.match(/<svg.*?>(.*)<\/svg>/)[1]}</svg>`;
         img.src = "data:image/svg+xml;base64," + btoa(svgString);
         images[key] = img;
     });

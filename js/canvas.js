@@ -1,6 +1,8 @@
 // js/canvas.js
 import { state, images, dom } from './state.js';
 
+// --- HELPERS DE DESENHO E LÓGICA ---
+
 function getWallPolygon(el) {
     const { x1, y1, x2, y2, thickness } = el;
     const halfThick = thickness / 2;
@@ -35,12 +37,16 @@ export function getInsertableHandles(el, wall) {
     return handles;
 }
 
+
+// --- RENDERERS DE SÍMBOLOS E SELEÇÃO ---
+
 function drawDoorSymbol(ctx, door, wall) {
     const flipY = door.flip || 1;
     const swingX = door.swing || 1;
     ctx.strokeStyle = '#666';
     ctx.lineWidth = 1.5;
     ctx.lineCap = 'round';
+    
     ctx.save();
     ctx.lineWidth = 3;
     ctx.beginPath();
@@ -48,12 +54,15 @@ function drawDoorSymbol(ctx, door, wall) {
     ctx.lineTo(0, wall.thickness / 2);
     ctx.stroke();
     ctx.restore();
+
     const pivotY = (wall.thickness / 2) * flipY;
     const pivotX = 0;
+
     ctx.beginPath();
     ctx.moveTo(pivotX, pivotY);
     ctx.lineTo(pivotX + (door.width * swingX), pivotY);
     ctx.stroke();
+
     ctx.beginPath();
     ctx.setLineDash([3, 3]);
     if (swingX > 0) {
@@ -70,8 +79,10 @@ function drawWindowSymbol(ctx, win, wall) {
     ctx.fillStyle = 'rgba(173, 216, 230, 0.7)';
     ctx.strokeStyle = '#888';
     ctx.lineWidth = 1;
+    
     ctx.fillRect(-halfWidth, -wall.thickness / 2, win.width, wall.thickness);
     ctx.strokeRect(-halfWidth, -wall.thickness / 2, win.width, wall.thickness);
+    
     ctx.beginPath();
     ctx.moveTo(-halfWidth, 0);
     ctx.lineTo(halfWidth, 0);
@@ -81,19 +92,24 @@ function drawWindowSymbol(ctx, win, wall) {
 function drawInsertableSelection(el, wall) {
     const { ctx } = dom;
     ctx.save();
+    
     const wallDx = wall.x2 - wall.x1;
     const wallDy = wall.y2 - wall.y1;
     const cx = wall.x1 + wallDx * el.position;
     const cy = wall.y1 + wallDy * el.position;
+
     ctx.translate(cx, cy);
     ctx.rotate(Math.atan2(wallDy, wallDx));
+
     const handles = getInsertableHandles(el, wall);
     const handleSize = 8 / state.zoom;
+    
     ctx.strokeStyle = '#8bc53f';
     ctx.lineWidth = 2 / state.zoom;
     ctx.setLineDash([4 / state.zoom, 2 / state.zoom]);
     ctx.strokeRect(-el.width / 2, -wall.thickness / 2, el.width, wall.thickness);
     ctx.setLineDash([]);
+    
     Object.values(handles).forEach(h => {
         ctx.fillStyle = h.cursor === 'pointer' ? '#f59e0b' : '#8bc53f';
         ctx.strokeStyle = 'white';
@@ -103,7 +119,48 @@ function drawInsertableSelection(el, wall) {
         ctx.fill();
         ctx.stroke();
     });
+
     ctx.restore();
+}
+
+function drawCoverageArea(ctx, el) {
+    if (!el.vision) return;
+
+    const { range, angle } = el.vision;
+    const startAngle = -angle / 2 * (Math.PI / 180);
+    const endAngle = angle / 2 * (Math.PI / 180);
+
+    ctx.fillStyle = 'rgba(239, 68, 68, 0.2)'; // Vermelho fraco
+    ctx.strokeStyle = 'rgba(239, 68, 68, 0.4)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, range, startAngle, endAngle);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+}
+
+function drawVisionHandles(el) {
+    if (!el.vision) return;
+    const { ctx } = dom;
+    const { range, angle } = el.vision;
+    const handleSize = 8 / state.zoom;
+    const angleRad = angle / 2 * (Math.PI / 180);
+
+    const rangeHandle = { x: range, y: 0 };
+    const angleHandle1 = { x: range * Math.cos(angleRad), y: range * Math.sin(angleRad) };
+    const angleHandle2 = { x: range * Math.cos(-angleRad), y: range * Math.sin(-angleRad) };
+    
+    ctx.fillStyle = '#f59e0b';
+    ctx.strokeStyle = 'white';
+    ctx.lineWidth = 1.5 / state.zoom;
+    [rangeHandle, angleHandle1, angleHandle2].forEach(h => {
+        ctx.beginPath();
+        ctx.arc(h.x, h.y, handleSize / 2, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.stroke();
+    });
 }
 
 const elementRenderers = {
@@ -131,6 +188,7 @@ const elementRenderers = {
         ctx.stroke();
     },
     object: (ctx, el) => {
+        drawCoverageArea(ctx, el);
         const img = images[el.subType];
         if (img?.complete) ctx.drawImage(img, -el.width / 2, -el.height / 2, el.width, el.height);
     },
@@ -260,6 +318,13 @@ function drawSelection() {
             if (wall) drawInsertableSelection(el, wall);
         } else {
             drawSelectionBox(el);
+            if (el.vision) {
+                dom.ctx.save();
+                dom.ctx.translate(el.x + el.width/2, el.y + el.height/2);
+                dom.ctx.rotate(el.rotation * Math.PI / 180);
+                drawVisionHandles(el);
+                dom.ctx.restore();
+            }
         }
     } else {
         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -298,13 +363,17 @@ function drawSelectionBox(el) {
     ctx.strokeStyle = '#8bc53f';
     ctx.lineWidth = 2 / state.zoom;
     ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
-    ctx.beginPath();
-    ctx.arc(boxX + boxWidth / 2, boxY - 20 / state.zoom, 5 / state.zoom, 0, 2 * Math.PI);
-    ctx.moveTo(boxX + boxWidth / 2, boxY - 20 / state.zoom);
-    ctx.lineTo(boxX + boxWidth / 2, boxY);
-    ctx.fillStyle = 'white';
-    ctx.fill();
-    ctx.stroke();
+    
+    if (el.type !== 'text') { // Rotation handle only for non-text
+        ctx.beginPath();
+        ctx.arc(0, -boxHeight / 2 - 20 / state.zoom, 5 / state.zoom, 0, 2 * Math.PI);
+        ctx.moveTo(0, -boxHeight / 2 - 20 / state.zoom);
+        ctx.lineTo(0, -boxHeight/2);
+        ctx.fillStyle = 'white';
+        ctx.fill();
+        ctx.stroke();
+    }
+    
     if (el.type !== 'text') {
         const handleSize = 8 / state.zoom;
         ctx.fillStyle = '#8bc53f';
